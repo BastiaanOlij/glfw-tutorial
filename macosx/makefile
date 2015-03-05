@@ -28,7 +28,7 @@ $(CONTENTSDIR)/Resources/%: ../Resources/%
 	cp -f $^ $@
 	@chmod 444 $@
 	
-$(CONTENTSDIR)/MacOS/$(APPNAME): $(OBJECTS) ../3rdparty/GLFW/libglfw3.a
+$(CONTENTSDIR)/MacOS/$(APPNAME): $(OBJECTS) ../3rdparty/GLFW/libglfw3_mac.a
 	$(CPP) $(LDFLAGS) -o $@	$^
 
 $(OBJECTDIR)/%.o: ../source/%.cpp
