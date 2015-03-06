@@ -13,34 +13,34 @@ OBJECTS += $(patsubst ../source/%,$(OBJECTDIR)/%,$(patsubst %.cpp,%.o,$(wildcard
 RESOURCES = $(patsubst ../Resources/%,$(CONTENTSDIR)/Resources/%,$(wildcard ../Resources/*.*))
 
 all: $(CONTENTSDIR)/MacOS \
-	$(CONTENTSDIR)/Info.pList \
-	$(CONTENTSDIR)/MacOS/$(APPNAME) \
-	$(RESOURCES)
-	
+  $(CONTENTSDIR)/Info.pList \
+  $(CONTENTSDIR)/MacOS/$(APPNAME) \
+  $(RESOURCES)
+  
 $(CONTENTSDIR)/MacOS: 
-	mkdir -p $(CONTENTSDIR)/MacOS
-	
+  mkdir -p $(CONTENTSDIR)/MacOS
+  
 $(CONTENTSDIR)/Info.pList: Info.plist
-	cp -f $^ $@
-	@chmod 444 $@
+  cp -f $^ $@
+  @chmod 444 $@
 
 $(CONTENTSDIR)/Resources/%: ../Resources/%
-	@mkdir -p $(@D)
-	@chmod 755 $(@D)
-	cp -f $^ $@
-	@chmod 444 $@
-	
+  @mkdir -p $(@D)
+  @chmod 755 $(@D)
+  cp -f $^ $@
+  @chmod 444 $@
+  
 $(CONTENTSDIR)/MacOS/$(APPNAME): $(OBJECTS) ../3rdparty/GLFW/libglfw3_mac.a
-	$(CPP) $(LDFLAGS) -o $@	$^
+  $(CPP) $(LDFLAGS) -o $@  $^
 
 $(OBJECTDIR)/%.o: ../source/%.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $<
+  @mkdir -p $(@D)
+  $(CC) $(CFLAGS) -o $@ $<
 
 $(OBJECTDIR)/%.o: ../source/%.cpp
-	@mkdir -p $(@D)
-	$(CPP) $(CFLAGS) -o $@ $<
+  @mkdir -p $(@D)
+  $(CPP) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -R -f ../build
-	
+  rm -R -f ../build
+  
