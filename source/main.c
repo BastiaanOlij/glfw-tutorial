@@ -13,12 +13,14 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
 };
 
 int main(void) {
+  GLFWwindow* window;
+  
   glfwSetErrorCallback(error_callback);
   if (!glfwInit()) {
     exit(EXIT_FAILURE);    
   };
   
-  GLFWwindow* window = glfwCreateWindow(640, 480, "Hello world", NULL, NULL);
+  window = glfwCreateWindow(640, 480, "Hello world", NULL, NULL);
   if (window) {
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
