@@ -203,7 +203,7 @@ int main(void) {
     glewExperimental=true;
     err = glewInit();
     if (err != GLEW_OK) {
-      error_callback(err, glewGetErrorString(err)); 
+      error_callback(err, (char*) glewGetErrorString(err)); 
 	  exit(EXIT_FAILURE); 
     };
 
