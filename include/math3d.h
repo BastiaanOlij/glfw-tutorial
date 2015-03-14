@@ -59,7 +59,6 @@
 #define math3dh
 
 // standard libraries we need...
-#include <stdbool.h>
 #include <math.h>
 
 #ifndef MATH3D_FLOAT
@@ -70,6 +69,17 @@
 // need to set this correctly!
 #define MATH3D_EPSILON 0.0000001
 #endif /* !MATH3D_EPSILON */
+
+// We need bool, it seems to be define differently over platforms
+#ifndef bool
+typedef int bool;
+#endif
+#ifndef false
+#define false 0
+#endif
+#ifndef true
+#define true 1
+#endif
 
 // we need PI...
 #ifndef PI
@@ -168,7 +178,7 @@ mat4* mat4FromMat3(mat4* pSet, const mat3* pFrom);
 
 #ifdef __cplusplus
 };
-#endif	
+#endif  
 
 #ifdef MATH3D_IMPLEMENTATION
 
@@ -213,7 +223,7 @@ MATH3D_FLOAT vec2Dot(const vec2* pVecA, const vec2* pVecB) {
 vec2* vec2Normalise(vec2 *pNormalise) {
   MATH3D_FLOAT dot = vec2Dot(pNormalise, pNormalise);
   if (dot <= MATH3D_EPSILON) {
-    // can't normalize a vector with 0.0 length	
+    // can't normalize a vector with 0.0 length  
     pNormalise->x = 1.0;
     pNormalise->y = 0.0;
   } else {
@@ -243,7 +253,7 @@ MATH3D_FLOAT vec2Lenght(const vec2* pLengthOf) {
 vec2* vec2Add(vec2* pAddTo, const vec2* pAdd) {
   pAddTo->x += pAdd->x;
   pAddTo->y += pAdd->y;
-	
+  
   return pAddTo;
 };
 
@@ -256,7 +266,7 @@ vec2* vec2Add(vec2* pAddTo, const vec2* pAdd) {
 vec2* vec2Sub(vec2* pSubFrom, const vec2* pSub) {
   pSubFrom->x -= pSub->x;
   pSubFrom->y -= pSub->y;
-	
+  
   return pSubFrom;
 };
 
@@ -313,7 +323,7 @@ vec3* vec3Cross(vec3* pDest, const vec3* pVecA, const vec3* pVecB) {
 vec3* vec3Normalise(vec3 *pNormalise) {
   MATH3D_FLOAT dot = vec3Dot(pNormalise, pNormalise);
   if (dot <= MATH3D_EPSILON) {
-    // can't normalize a vector with 0.0 length	
+    // can't normalize a vector with 0.0 length  
     pNormalise->x = 1.0;
     pNormalise->y = 0.0;
     pNormalise->z = 0.0;
@@ -346,7 +356,7 @@ vec3* vec3Add(vec3* pAddTo, const vec3* pAdd) {
   pAddTo->x += pAdd->x;
   pAddTo->y += pAdd->y;
   pAddTo->z += pAdd->z;
-	
+  
   return pAddTo;
 };
 
@@ -360,7 +370,7 @@ vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub) {
   pSubFrom->x -= pSub->x;
   pSubFrom->y -= pSub->y;
   pSubFrom->z -= pSub->z;
-	
+  
   return pSubFrom;
 };
 
@@ -398,7 +408,7 @@ vec4* vec4Copy(vec4* pSet, const vec4* pCopy) {
 // dot is now 0.0
 // Note that when the two vectors are unit vectors (normalized) vec4Dot actually returns the cosine value of the angle between the two vectors. Amazingly handy.
 MATH3D_FLOAT vec4Dot(const vec4* pVecA, const vec4* pVecB) {
-	return (pVecA->x * pVecB->x) + (pVecA->y * pVecB->y) + (pVecA->z * pVecB->z) + (pVecA->w * pVecB->w);
+  return (pVecA->x * pVecB->x) + (pVecA->y * pVecB->y) + (pVecA->z * pVecB->z) + (pVecA->w * pVecB->w);
 };
 
 // Normalises our vector, this results in our vector becoming unit lenght.
@@ -409,7 +419,7 @@ MATH3D_FLOAT vec4Dot(const vec4* pVecA, const vec4* pVecB) {
 vec4* vec4Normalise(vec4 *pNormalise) {
   MATH3D_FLOAT dot = vec4Dot(pNormalise, pNormalise);
   if (dot <= MATH3D_EPSILON) {
-    // can't normalize a vector with 0.0 length	
+    // can't normalize a vector with 0.0 length  
     pNormalise->x = 1.0;
     pNormalise->y = 0.0;
     pNormalise->z = 0.0;
@@ -445,7 +455,7 @@ vec4* vec4Add(vec4* pAddTo, const vec4* pAdd) {
   pAddTo->y += pAdd->y;
   pAddTo->z += pAdd->z;
   pAddTo->w += pAdd->w;
-	
+  
   return pAddTo;
 };
 
@@ -460,7 +470,7 @@ vec4* vec4Sub(vec4* pSubFrom, const vec4* pSub) {
   pSubFrom->y -= pSub->y;
   pSubFrom->z -= pSub->z;
   pSubFrom->w -= pSub->w;
-	
+  
   return pSubFrom;
 };
 
@@ -494,11 +504,12 @@ vec4* vec4FromVec3(vec4* pSet, const vec3* pFrom, MATH3D_FLOAT pW) {
 
 // Copies the contents of one 3x3 matrix into another
 mat3* mat3Copy(mat3* pDest, const mat3* pSource) {
-	for (int j = 0 ; j < 3; j++) {
-		for (int i = 0 ; i < 3; i++) {
-			pDest->m[j][i] = pSource->m[j][i];
-		};		
-	};
+  int i,j;
+  for (j = 0; j < 3; j++) {
+    for (i = 0; i < 3; i++) {
+      pDest->m[j][i] = pSource->m[j][i];
+    };    
+  };
   
   return pDest;  
 };
@@ -508,25 +519,27 @@ mat3* mat3Copy(mat3* pDest, const mat3* pSource) {
 // 0.0, 1.0, 0.0
 // 0.0, 0.0, 1.0
 mat3* mat3Identity(mat3* pSet) {
-	for (int j = 0 ; j < 3; j++) {
-		for (int i = 0 ; i < 3; i++) {
-			pSet->m[j][i] = i == j ? 1 : 0;
-		};		
-	};
+  int i,j;
+  for (j = 0 ; j < 3; j++) {
+    for (i = 0 ; i < 3; i++) {
+      pSet->m[j][i] = i == j ? 1 : 0;
+    };    
+  };
   
   return pSet;
 };
 
 // Transpose flips rows and columns around
 mat3* mat3Transpose(mat3* pTranspose) {
+  int i,j;
   mat3 copy;
   mat3Copy(&copy, pTranspose);
   
-	for (int j = 0 ; j < 3; j++) {
-		for (int i = 0 ; i < 3; i++) {
-			pTranspose->m[j][i] = copy.m[i][j];
-		};		
-	};
+  for (j = 0 ; j < 3; j++) {
+    for (i = 0 ; i < 3; i++) {
+      pTranspose->m[j][i] = copy.m[i][j];
+    };    
+  };
   
   return pTranspose;  
 };
@@ -538,9 +551,9 @@ vec3* mat3ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat3* pMatrix) {
   // make a copy to apply to so pSet can equal pApplyTo
   vec3Copy(&applyTo, pApplyTo);
   
-	pSet->x = (applyTo.x * pMatrix->m[0][0]) + (applyTo.y * pMatrix->m[1][0]) + (applyTo.z * pMatrix->m[2][0]);
-	pSet->y = (applyTo.x * pMatrix->m[0][1]) + (applyTo.y * pMatrix->m[1][1]) + (applyTo.z * pMatrix->m[2][1]);
-	pSet->z = (applyTo.x * pMatrix->m[0][2]) + (applyTo.y * pMatrix->m[1][2]) + (applyTo.z * pMatrix->m[2][2]);
+  pSet->x = (applyTo.x * pMatrix->m[0][0]) + (applyTo.y * pMatrix->m[1][0]) + (applyTo.z * pMatrix->m[2][0]);
+  pSet->y = (applyTo.x * pMatrix->m[0][1]) + (applyTo.y * pMatrix->m[1][1]) + (applyTo.z * pMatrix->m[2][1]);
+  pSet->z = (applyTo.x * pMatrix->m[0][2]) + (applyTo.y * pMatrix->m[1][2]) + (applyTo.z * pMatrix->m[2][2]);
   
   return pSet;
 };
@@ -558,20 +571,20 @@ vec3* mat3ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat3* pMatrix) {
 // mat3ApplyToVec3(&vector, &vector, &matrix);
 // This allows you to calculate a single matrix for a series of transformations and then apply it to a list of vertices. 
 mat3* mat3Multiply(mat3* pMultTo, const mat3* pMultWith) {
-	int		i, j, k;
-	mat3	Copy;
+  int   i, j, k;
+  mat3  Copy;
 
   mat3Copy(&Copy, pMultTo);
 
-	for (j = 0; j < 3; j++) {
-		for (i = 0; i < 3; i++) {
-			pMultTo->m[j][i] = 0.0;
+  for (j = 0; j < 3; j++) {
+    for (i = 0; i < 3; i++) {
+      pMultTo->m[j][i] = 0.0;
 
-			for (k = 0; k < 3; k++) {
-				pMultTo->m[j][i] += pMultWith->m[j][k] * Copy.m[k][i];				
-			};
-		};
-	};
+      for (k = 0; k < 3; k++) {
+        pMultTo->m[j][i] += pMultWith->m[j][k] * Copy.m[k][i];        
+      };
+    };
+  };
   
   return pMultTo;
 };
@@ -584,36 +597,37 @@ mat3* mat3Multiply(mat3* pMultTo, const mat3* pMultWith) {
 // mat3Rotate(&rotate, 45.0, &axis);
 // ... now you can apply this rotation matrix to your vertices ...
 mat3* mat3Rotate(mat3* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis) {
-	mat3 R;
+  mat3 R;
   vec3 axis;
+  MATH3D_FLOAT sinus, cosine, xx, yy, zz, xy, yz, zx, xs, ys, zs, oneMinCos;
   
   vec3Normalise(vec3Copy(&axis, pAxis));
 
-	MATH3D_FLOAT sin = sinf(angToRad(pAngle));
-	MATH3D_FLOAT cos = cosf(angToRad(pAngle));
-	
-	MATH3D_FLOAT xx = axis.x * axis.x;
-	MATH3D_FLOAT yy = axis.y * axis.y;
-	MATH3D_FLOAT zz = axis.z * axis.z;
-	MATH3D_FLOAT xy = axis.x * axis.y;
-	MATH3D_FLOAT yz = axis.y * axis.z;
-	MATH3D_FLOAT zx = axis.z * axis.x;
-	MATH3D_FLOAT xs = axis.x * sin;
-	MATH3D_FLOAT ys = axis.y * sin;
-	MATH3D_FLOAT zs = axis.z * sin;
-	MATH3D_FLOAT oneMinCos = 1.0f - cos;
-	
-	R.m[0][0] = (oneMinCos * xx) + cos;
-	R.m[0][1] = (oneMinCos * xy) - zs;
-	R.m[0][2] = (oneMinCos * zx) + ys;
+  sinus = sinf(angToRad(pAngle));
+  cosine = cosf(angToRad(pAngle));
+  
+  xx = axis.x * axis.x;
+  yy = axis.y * axis.y;
+  zz = axis.z * axis.z;
+  xy = axis.x * axis.y;
+  yz = axis.y * axis.z;
+  zx = axis.z * axis.x;
+  xs = axis.x * sinus;
+  ys = axis.y * sinus;
+  zs = axis.z * sinus;
+  oneMinCos = 1.0f - cosine;
+  
+  R.m[0][0] = (oneMinCos * xx) + cosine;
+  R.m[0][1] = (oneMinCos * xy) - zs;
+  R.m[0][2] = (oneMinCos * zx) + ys;
  
-	R.m[1][0] = (oneMinCos * xy) + zs;
-	R.m[1][1] = (oneMinCos * yy) + cos;
-	R.m[1][2] = (oneMinCos * yz) - xs;
+  R.m[1][0] = (oneMinCos * xy) + zs;
+  R.m[1][1] = (oneMinCos * yy) + cosine;
+  R.m[1][2] = (oneMinCos * yz) - xs;
  
-	R.m[2][0] = (oneMinCos * zx) - ys;
-	R.m[2][1] = (oneMinCos * yz) + xs;
-	R.m[2][2] = (oneMinCos * zz) + cos;
+  R.m[2][0] = (oneMinCos * zx) - ys;
+  R.m[2][1] = (oneMinCos * yz) + xs;
+  R.m[2][2] = (oneMinCos * zz) + cosine;
 
   return mat3Multiply(pMatrix, &R);
 };
@@ -623,11 +637,12 @@ mat3* mat3Rotate(mat3* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis) {
 
 // Copies the contents of one 4x4 matrix into another
 mat4* mat4Copy(mat4* pDest, const mat4* pSource) {
-	for (int j = 0 ; j < 4; j++) {
-		for (int i = 0 ; i < 4; i++) {
-			pDest->m[j][i] = pSource->m[j][i];
-		};		
-	};
+  int i,j;
+  for (j = 0 ; j < 4; j++) {
+    for (i = 0 ; i < 4; i++) {
+      pDest->m[j][i] = pSource->m[j][i];
+    };    
+  };
   
   return pDest;  
 };
@@ -638,25 +653,27 @@ mat4* mat4Copy(mat4* pDest, const mat4* pSource) {
 // 0.0, 0.0, 1.0, 0.0
 // 0.0, 0.0, 0.0, 1.0
 mat4* mat4Identity(mat4* pSet) {
-	for (int j = 0 ; j < 4; j++) {
-		for (int i = 0 ; i < 4; i++) {
-			pSet->m[j][i] = i == j ? 1 : 0;
-		};		
-	};
+  int i,j;
+  for (j = 0 ; j < 4; j++) {
+    for (i = 0 ; i < 4; i++) {
+      pSet->m[j][i] = i == j ? 1 : 0;
+    };    
+  };
   
   return pSet;
 };
 
 // Transpose flips rows and columns around
 mat4* mat4Transpose(mat4* pTranspose) {
+  int  i,j;
   mat4 copy;
   mat4Copy(&copy, pTranspose);
   
-	for (int j = 0 ; j < 4; j++) {
-		for (int i = 0 ; i < 4; i++) {
-			pTranspose->m[j][i] = copy.m[i][j];
-		};		
-	};
+  for (j = 0 ; j < 4; j++) {
+    for (i = 0 ; i < 4; i++) {
+      pTranspose->m[j][i] = copy.m[i][j];
+    };    
+  };
   
   return pTranspose;  
 };
@@ -681,10 +698,10 @@ vec4* mat4ApplyToVec4(vec4* pSet, const vec4* pApplyTo, const mat4* pMatrix) {
   // make a copy to apply to so pSet can equal pApplyTo
   vec4Copy(&applyTo, pApplyTo);
   
-	pSet->x = (applyTo.x * pMatrix->m[0][0]) + (applyTo.y * pMatrix->m[1][0]) + (applyTo.z * pMatrix->m[2][0]) + (applyTo.w * pMatrix->m[3][0]);
-	pSet->y = (applyTo.x * pMatrix->m[0][1]) + (applyTo.y * pMatrix->m[1][1]) + (applyTo.z * pMatrix->m[2][1]) + (applyTo.w * pMatrix->m[3][1]);
-	pSet->z = (applyTo.x * pMatrix->m[0][2]) + (applyTo.y * pMatrix->m[1][2]) + (applyTo.z * pMatrix->m[2][2]) + (applyTo.w * pMatrix->m[3][2]);
-	pSet->w = (applyTo.x * pMatrix->m[0][3]) + (applyTo.y * pMatrix->m[1][3]) + (applyTo.z * pMatrix->m[2][3]) + (applyTo.w * pMatrix->m[3][3]);
+  pSet->x = (applyTo.x * pMatrix->m[0][0]) + (applyTo.y * pMatrix->m[1][0]) + (applyTo.z * pMatrix->m[2][0]) + (applyTo.w * pMatrix->m[3][0]);
+  pSet->y = (applyTo.x * pMatrix->m[0][1]) + (applyTo.y * pMatrix->m[1][1]) + (applyTo.z * pMatrix->m[2][1]) + (applyTo.w * pMatrix->m[3][1]);
+  pSet->z = (applyTo.x * pMatrix->m[0][2]) + (applyTo.y * pMatrix->m[1][2]) + (applyTo.z * pMatrix->m[2][2]) + (applyTo.w * pMatrix->m[3][2]);
+  pSet->w = (applyTo.x * pMatrix->m[0][3]) + (applyTo.y * pMatrix->m[1][3]) + (applyTo.z * pMatrix->m[2][3]) + (applyTo.w * pMatrix->m[3][3]);
   
   return pSet;
 };
@@ -692,20 +709,20 @@ vec4* mat4ApplyToVec4(vec4* pSet, const vec4* pApplyTo, const mat4* pMatrix) {
 // Multiplies two matrices together. 
 // see mat4Multiply
 mat4* mat4Multiply(mat4* pMultTo, const mat4* pMultWith) {
-	int		i, j, k;
-	mat4	Copy;
+  int    i, j, k;
+  mat4  Copy;
 
   mat4Copy(&Copy, pMultTo);
 
-	for (j = 0; j < 4; j++) {
-		for (i = 0; i < 4; i++) {
-			pMultTo->m[j][i] = 0.0;
+  for (j = 0; j < 4; j++) {
+    for (i = 0; i < 4; i++) {
+      pMultTo->m[j][i] = 0.0;
 
-			for (k = 0; k < 4; k++) {
-				pMultTo->m[j][i] += pMultWith->m[j][k] * Copy.m[k][i];				
-			};
-		};
-	};
+      for (k = 0; k < 4; k++) {
+        pMultTo->m[j][i] += pMultWith->m[j][k] * Copy.m[k][i];        
+      };
+    };
+  };
   
   return pMultTo;
 };
@@ -730,91 +747,92 @@ mat4* mat4Rotate(mat4* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis) {
 // mat4Identity(&projection);
 // mat4Ortho(&projection, 0, screenwidth, 0, screenheight, 0.1, 100.0);
 mat4* mat4Ortho(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar) {
-	mat4 M;
+  mat4 M;
 
-	M.m[0][0] = 2.0f / (pRight - pLeft);
-	M.m[0][1] = 0.0f;
-	M.m[0][2] = 0.0f;
-	M.m[0][3] = 0.0f;
+  M.m[0][0] = 2.0f / (pRight - pLeft);
+  M.m[0][1] = 0.0f;
+  M.m[0][2] = 0.0f;
+  M.m[0][3] = 0.0f;
 
-	M.m[1][0] = 0.0f;
-	M.m[1][1] = 2.0f / (pTop - pBottom);
-	M.m[1][2] = 0.0f;
-	M.m[1][3] = 0.0f;
-	
-	M.m[2][0] = 0.0f;
-	M.m[2][1] = 0.0f;
-	M.m[2][2] = -2.0f / (pZFar - pZNear);
-	M.m[2][3] = 0.0f;
+  M.m[1][0] = 0.0f;
+  M.m[1][1] = 2.0f / (pTop - pBottom);
+  M.m[1][2] = 0.0f;
+  M.m[1][3] = 0.0f;
+  
+  M.m[2][0] = 0.0f;
+  M.m[2][1] = 0.0f;
+  M.m[2][2] = -2.0f / (pZFar - pZNear);
+  M.m[2][3] = 0.0f;
 
-	M.m[3][0] = -(pRight + pLeft) / (pRight - pLeft);
-	M.m[3][1] = -(pTop + pBottom) / (pTop - pBottom);
-	M.m[3][2] = -(pZFar + pZNear) / (pZFar - pZNear);
-	M.m[3][3] = 1.0f;
+  M.m[3][0] = -(pRight + pLeft) / (pRight - pLeft);
+  M.m[3][1] = -(pTop + pBottom) / (pTop - pBottom);
+  M.m[3][2] = -(pZFar + pZNear) / (pZFar - pZNear);
+  M.m[3][3] = 1.0f;
   
   return mat4Multiply(pMatrix, &M);  
 };
 
 // Applies a matrix based on a frustum for 3D projection.
 mat4* mat4Frustum(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar) {
-	mat4 M;
+  mat4 M;
 
-	M.m[0][0] = (2.0f * pZNear) / (pRight - pLeft);
-	M.m[0][1] = 0.0;
-	M.m[0][2] = 0.0;
-	M.m[0][3] = 0.0f;
+  M.m[0][0] = (2.0f * pZNear) / (pRight - pLeft);
+  M.m[0][1] = 0.0;
+  M.m[0][2] = 0.0;
+  M.m[0][3] = 0.0f;
 
-	M.m[1][0] = 0.0;
-	M.m[1][1] = (2 * pZNear) / (pTop - pBottom);
-	M.m[1][2] = 0.0;
-	M.m[1][3] = 0.0f;
-	
-	M.m[2][0] = (pRight + pLeft) / (pRight - pLeft);
-	M.m[2][1] = (pTop + pBottom) / (pTop - pBottom);
-	M.m[2][2] = -(pZFar + pZNear) / (pZFar - pZNear);
-	M.m[2][3] = -1.0f;
+  M.m[1][0] = 0.0;
+  M.m[1][1] = (2 * pZNear) / (pTop - pBottom);
+  M.m[1][2] = 0.0;
+  M.m[1][3] = 0.0f;
+  
+  M.m[2][0] = (pRight + pLeft) / (pRight - pLeft);
+  M.m[2][1] = (pTop + pBottom) / (pTop - pBottom);
+  M.m[2][2] = -(pZFar + pZNear) / (pZFar - pZNear);
+  M.m[2][3] = -1.0f;
 
-	M.m[3][0] = 0.0;
-	M.m[3][1] = 0.0;
-	M.m[3][2] = -(2.0f * pZFar * pZNear) / (pZFar - pZNear);
-	M.m[3][3] = 0.0f;	
+  M.m[3][0] = 0.0;
+  M.m[3][1] = 0.0;
+  M.m[3][2] = -(2.0f * pZFar * pZNear) / (pZFar - pZNear);
+  M.m[3][3] = 0.0f;  
   
   return mat4Multiply(pMatrix, &M);  
 };
 
 // Applies a 3D projection matrix.
 mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT pFOV, MATH3D_FLOAT pAspect, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar) {
-	MATH3D_FLOAT ymax, xmax;
-	
-	ymax = pZNear * tan(pFOV * PI / 360.0f);
-	xmax = ymax * pAspect;
-	
-	return mat4Frustum(pMatrix, -xmax, xmax, -ymax, ymax, pZNear, pZFar);
+  MATH3D_FLOAT ymax, xmax;
+  
+  ymax = pZNear * tan(pFOV * PI / 360.0f);
+  xmax = ymax * pAspect;
+  
+  return mat4Frustum(pMatrix, -xmax, xmax, -ymax, ymax, pZNear, pZFar);
 };
 
 // Initialize a 3x3 matrix from a 4x4 matrix, discards the last column and row
 mat3* mat3FromMat4(mat3* pSet, const mat4* pFrom) {
-	for (int j = 0 ; j < 3; j++) {
-		for (int i = 0 ; i < 3; i++) {
-			pSet->m[j][i] = pFrom->m[j][i];
-		};		
-	};
+  int i,j;
+  for (j = 0 ; j < 3; j++) {
+    for (i = 0 ; i < 3; i++) {
+      pSet->m[j][i] = pFrom->m[j][i];
+    };    
+  };
   
   return pSet;
 };
 
 // Initialize a 4x4 matrix from a 3x3 matrix
 mat4* mat4FromMat3(mat4* pSet, const mat3* pFrom) {
+  int i,j;
   mat4Identity(pSet);
   
-	for (int j = 0 ; j < 3; j++) {
-		for (int i = 0 ; i < 3; i++) {
-			pSet->m[j][i] = pFrom->m[j][i];
-		};		
-	};
+  for (j = 0 ; j < 3; j++) {
+    for (i = 0 ; i < 3; i++) {
+      pSet->m[j][i] = pFrom->m[j][i];
+    };    
+  };
   
   return pSet;
-  
 };
 
 

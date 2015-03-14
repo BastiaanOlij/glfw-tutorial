@@ -43,10 +43,10 @@ enum shaderErrors {
 extern "C" {
 #endif
   
-typedef void(* ShaderError)(int, const char *);
+typedef void(* ShaderError)(int, const char*);
 
 void shaderSetErrorCallback(ShaderError pCallback);
-GLuint shaderCompile(GLenum pShaderType, const GLchar * pShaderText);
+GLuint shaderCompile(GLenum pShaderType, const GLchar* pShaderText);
 GLuint shaderLink(GLuint pNumShaders, ...);
   
 #ifdef __cplusplus
@@ -156,14 +156,15 @@ GLuint shaderCompile(GLenum pShaderType, const GLchar * pShaderText) {
 GLuint shaderLink(GLuint pNumShaders, ...) {
   GLuint program;
   va_list shaders;
+  int s;
   
-	// create our shader program...
-	program = glCreateProgram();
+  // create our shader program...
+  program = glCreateProgram();
   
   // now add our compiled code...
   va_start(shaders, pNumShaders);
   
-  for (int s = 0; s < pNumShaders && program != NO_SHADER; s++) {
+  for (s = 0; s < pNumShaders && program != NO_SHADER; s++) {
     GLuint shader = va_arg(shaders, GLuint);
     
     if (shader == NO_SHADER) {

@@ -1,6 +1,8 @@
-// include these defines to let GLFW know we need OpenGL 3 support
+// include GLEW
+#include <GL/glew.h>
+
+// include these defines to let GLFW know we need OpenGL 3 support 
 #define GLFW_INCLUDE_GL_3
-#define GLFW_INCLUDE_GLCOREARB
 #include <GLFW/glfw3.h>
 
 // include some standard libraries
@@ -192,9 +194,19 @@ int main(void) {
   // create our window
   window = glfwCreateWindow(640, 480, "GLFW Tutorial", NULL, NULL);
   if (window) {
+    GLenum err;
+	
     // make our context current
     glfwMakeContextCurrent(window);
-    
+ 
+    // init GLEW
+    glewExperimental=true;
+    err = glewInit();
+    if (err != GLEW_OK) {
+      error_callback(err, glewGetErrorString(err)); 
+	  exit(EXIT_FAILURE); 
+    };
+
     // tell GLFW how to inform us of keyboard input
     glfwSetKeyCallback(window, key_callback);
     
@@ -232,10 +244,12 @@ int main(void) {
             
       // select our shader
       if (shaderProgram != NO_SHADER) {
+        GLint mvpId;
+
         glUseProgram(shaderProgram);
         
         // should retrieve our mvpId once and reuse
-        GLint mvpId = glGetUniformLocation(shaderProgram, "mvp");
+        mvpId = glGetUniformLocation(shaderProgram, "mvp");
         if (mvpId >= 0) {
           glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
         } else {

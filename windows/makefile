@@ -12,6 +12,9 @@ OBJECTS = $(OBJECTDIR)\main.obj
 all: $(CONTENTSDIR) \
   $(OBJECTDIR) \
   $(CONTENTSDIR)\$(APPNAME) \
+  $(CONTENTSDIR)\glew32.dll \
+  $(CONTENTSDIR)\simple.fs \
+  $(CONTENTSDIR)\simple.vs
 	
 $(CONTENTSDIR): 
   mkdir $(CONTENTSDIR)	
@@ -19,10 +22,19 @@ $(CONTENTSDIR):
 $(OBJECTDIR):
   mkdir $(OBJECTDIR)
   
-$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.lib 
+$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.lib ..\3rdparty\GL\glew32.lib
   link $(LDFLAGS) /out:$@ $** $(WINLIBS)
 
-$(OBJECTDIR)\main.obj:
+$(CONTENTSDIR)\glew32.dll: ..\3rdparty\GL\glew32.dll
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\simple.fs: ..\resources\simple.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\simple.vs: ..\resources\simple.vs
+  copy /B /Y $** $@
+  
+$(OBJECTDIR)\main.obj: ..\source\main.c
   cl $(CFLAGS) /Fo$@ ..\source\main.c
 
 clean:
