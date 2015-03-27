@@ -12,5 +12,10 @@ Also added the main makefile and replace $(AR) cr with $(AR) $(LDFLAGS.STATIC)
 Then to build:
 make
 
+Alternatively, get the source for my fork of the GLEW project and compile by using:
+make SYSTEM=darwin-universal
+
+This change has been submitted to the main project *fingers crossed*
+
 Original source code can be found here:
 http://glew.sourceforge.net/

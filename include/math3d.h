@@ -169,6 +169,7 @@ vec3* mat4ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat4* pMatrix);
 vec4* mat4ApplyToVec4(vec4* pSet, const vec4* pApplyTo, const mat4* pMatrix);
 mat4* mat4Multiply(mat4* pMultTo, const mat4* pMultWith);
 mat4* mat4Rotate(mat4* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis);
+mat4* mat4Translate(mat4 *pMatrix, const vec3* pAxis);
 mat4* mat4Ortho(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Frustum(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT fov, MATH3D_FLOAT aspect, MATH3D_FLOAT znear, MATH3D_FLOAT zfar);
@@ -739,6 +740,18 @@ mat4* mat4Rotate(mat4* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis) {
   mat4FromMat3(&rotate4, &rotate3);
   
   return mat4Multiply(pMatrix, &rotate4);
+};
+
+// Applies a translation matrix to our matrix (move)
+mat4* mat4Translate(mat4 *pMatrix, const vec3* pAxis) {
+  mat4 translate;
+  
+  mat4Identity(&translate);
+  translate.m[3][0] = pAxis->x;
+  translate.m[3][1] = pAxis->y;
+  translate.m[3][2] = pAxis->z;
+
+  return mat4Multiply(pMatrix, &translate);
 };
 
 // Applies an orthographic projection. This allows a 2D projection where Z is only used for layering.
