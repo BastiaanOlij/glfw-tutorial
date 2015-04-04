@@ -1,6 +1,7 @@
 // make sure we include any implementations here (note that these libraries are all included through engine.h)
 #define FONTSTASH_IMPLEMENTATION
 #define GLFONTSTASH_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
 #define MATH3D_IMPLEMENTATION
 #define SHADER_IMPLEMENTATION
 
@@ -32,8 +33,33 @@ void error_callback(int error, const char* description) {
 };
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
+  } else if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
+    switch (key) {
+      case GLFW_KEY_O: {
+        engineViewRotate(-1.0);
+      } break;
+      case GLFW_KEY_P: {
+        engineViewRotate( 1.0);        
+      } break;
+      case GLFW_KEY_W: {
+        engineViewMove( 0.0,  5.0);        
+      } break;
+      case GLFW_KEY_S: {
+        engineViewMove( 0.0, -5.0);        
+      } break;
+      case GLFW_KEY_A: {
+        engineViewMove( 5.0,  0.0);        
+      } break;
+      case GLFW_KEY_D: {
+        engineViewMove(-5.0,  0.0);        
+      } break;
+      default: {
+        // ignore
+      } break;
+    };
+  };
 };
 
 int main(void) {

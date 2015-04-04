@@ -15,13 +15,18 @@
 // shader program and buffers
 GLuint shaderProgram = NO_SHADER;
 GLint  mvpId = -1;
+GLint  mapdataId = -1;
+GLint  tileId = -1;
 GLuint VAO = 0;
-GLuint VBOs[2] = { 0, 0 };
+GLuint textures[2] = { 0, 0 };
 
 // and some globals for our fonts
 FONScontext *	fs = NULL;
 int font = FONS_INVALID;
 float lineHeight = 0.0f;
+
+// our view matrix
+mat4  view;
 
 // and some runtime variables.
 double rotation = 0.0f;
@@ -29,6 +34,50 @@ double frames = 0.0f;
 double fps = 0.0f;
 double lastframes = 0.0f;
 double lastsecs = 0.0f;
+
+// map data
+unsigned char mapdata[1600] = {
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,13,14,15,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,45,13,14,15,29,30,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,13,14,15,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,30,21,22,23,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29, 0, 1, 2,29,29,30,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,24,25,25,25,25,25,25,25,25,25,25,25,26, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,32,33,33,33,33,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,39,29,29,29,29,32,33,35,41,36,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,32,33,34,29,32,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,37,29,29,32,33,34,29,32,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,47,37,29,29,29,29,32,33,43,25,44,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,39,29,29,29,39,29,29,29,32,33,33,33,33,33,33,33,35,41,36,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  39,29,29,29,29,39,37,29,29,37,29,32,33,33,33,33,33,33,33,43,25,44,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,38,29,29,29,37,29,39,29,29,29,32,33,33,33,33,33,33,33,33,33,33,33,34, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,38,29,29,29,29,29,29,29,40,41,41,41,41,41,41,41,41,41,41,41,42, 8, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+   6, 6, 7, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,28, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  14,14,15, 8, 9, 9, 9, 9, 9, 9, 9, 9,10, 8, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,10,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  22,22,23,16,17,17,17,17,17,17,17,17,18,16,17,17,17,17,17,17,17,17,17,17,17,17,18,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,38,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,31,30,
+  29,29,29,29,38,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,31,
+  38,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,24,25,25,25,25,25,25,25,25,25,25,25,26,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,45,29,32,33,33,33,33,33,33,33,33,35,41,36,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,32,33,33,33,33,33,33,33,33,34,47,32,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,46,32,33,33,33,33,33,33,33,33,34,47,32,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,38,29,29,29,32,33,33,33,33,33,33,33,33,34,47,32,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,32,33,33,33,33,33,33,33,33,43,25,44,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,46,29,32,33,33,33,33,33,33,33,33,33,33,33,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,32,33,33,33,33,33,33,33,33,33,33,33,34,47,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,32,33,33,33,33,33,33,33,33,33,33,33,34,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,40,41,41,41,41,41,41,41,41,41,41,41,42,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,31,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,31,29,29,29,30,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,31,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,
+  29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29
+};
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -119,13 +168,13 @@ void load_shaders() {
   // all our error reporting is already done in these functions
   // so we can keep going as long as we have no error
   // and cleanup after ourselves...
-  shaderText = loadFile("simple.vs");
+  shaderText = loadFile("tilemap.vs");
   if (shaderText != NULL) {
     vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
     free(shaderText);
     
     if (vertexShader != NO_SHADER) {
-      shaderText = loadFile("simple.fs");
+      shaderText = loadFile("tilemap.fs");
 
       if (shaderText != NULL) {
         fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
@@ -136,6 +185,14 @@ void load_shaders() {
           mvpId = glGetUniformLocation(shaderProgram, "mvp");
           if (mvpId < 0) {
             engineErrCallback(mvpId, "Unknown uniform mvp");
+          };
+          mapdataId = glGetUniformLocation(shaderProgram, "mapdata");
+          if (mapdataId < 0) {
+            engineErrCallback(mapdataId, "Unknown uniform mapdata");
+          };
+          tileId = glGetUniformLocation(shaderProgram, "tiles");
+          if (tileId < 0) {
+            engineErrCallback(tileId, "Unknown uniform tiles");
           };
         };
                 
@@ -160,54 +217,47 @@ void unload_shaders() {
 // Objects
 
 void load_objects() {
-  // data for our triangle
-  GLfloat vertices[9] = {
-    -300.0f, -200.0f,    0.0f,
-     300.0f, -200.0f,    0.0f,
-       0.0f,  300.0f,    0.0f
-  };
-  GLfloat colors[9] = {
-    1.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f,
-    0.0f, 0.0f, 1.0f
-  };
-  GLuint indices[3] = { 0, 1, 2 };
-    
-  // we start with creating our vertex array object
+	int x, y, comp;
+  unsigned char * data;
+
+  // we start with creating our vertex array object, even though we're not doing much with it, OpenGL still requires one for state
   glGenVertexArrays(1, &VAO);
   
-  // and make it current, all actions we do now relate to this VAO
-  glBindVertexArray(VAO);
+  // Need to create our texture objects
+  glGenTextures(2, textures);
   
-  // and create our two vertex buffer objects
-  glGenBuffers(2, VBOs);
+  // now load in our map texture into textures[0]
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 40, 40, 0, GL_RED, GL_UNSIGNED_BYTE, mapdata);
   
-  // load up our vertices
-  glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
-  
-  // size our buffer
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(colors), NULL, GL_STATIC_DRAW);
-  
-  // layout (location=0) in vec3	vertices;
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 3, (GLvoid *) 0);
-  
-  // layout (location=1) in vec3	colors;
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 3, (GLvoid *) sizeof(vertices));
-  
-  // load up our indices
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBOs[1]);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-  
+  // and we load our tiled map
+	data = stbi_load("desert256.png", &x, &y, &comp, 4);
+  if (data == 0) {
+    engineErrCallback(-1, "Couldn't load desert256.png");
+  } else {
+  	glBindTexture(GL_TEXTURE_2D, textures[1]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		
+		stbi_image_free(data);
+  };
+
+  // and lets be nice and unbind...
+	glBindTexture(GL_TEXTURE_2D, 0);
+
   // and clear our selected vertex array object
   glBindVertexArray(0);
 };
 
 void unload_objects() {
-  glDeleteBuffers(2, VBOs);
+  glDeleteTextures(2, textures);
   glDeleteVertexArrays(1, &VAO);
 };
 
@@ -224,6 +274,9 @@ void engineLoad() {
   
   // load our objects
   load_objects();
+  
+  // init our view matrix (for now just an identity matrix)
+  mat4Identity(&view);  
 };
 
 // engineUnload unloads and frees up any data associated with our engine
@@ -251,7 +304,7 @@ void engineUpdate(double pSecondsPassed) {
 
 // engineRender is called to render our stuff
 void engineRender(int pWidth, int pHeight) {;
-  mat4 mvp, projection, view;
+  mat4 mvp, projection;
   vec3 tmpvector;
   float ratio;
   
@@ -265,33 +318,30 @@ void engineRender(int pWidth, int pHeight) {;
   // init our projection matrix, note that we've got positive Y pointing down
   mat4Identity(&projection);
   mat4Ortho(&projection, -ratio * 500.0, ratio * 500.0, 500.0f, -500.0f, 1.0f, -1.0f);
-  
-  // init our view matrix (for now just an identity matrix)
-  mat4Identity(&view);
-        
+          
   // select our shader
   if ((shaderProgram != NO_SHADER) && (mvpId >= 0)) {
     glUseProgram(shaderProgram);
 
-    // draw our triangle 1x
+    // draw our map
+    
+    // set our model-view-projection matrix first
     mat4Copy(&mvp, &projection);
     mat4Multiply(&mvp, &view);
-    mat4Rotate(&mvp, (float) rotation, vec3Set(&tmpvector, 0.0f, 0.0f, 1.0f));
     glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
-  
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, NULL);
-    glBindVertexArray(0);
+    
+    // now tell it which textures to use
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, textures[0]);
+		glUniform1i(mapdataId, 0);
 
-    // draw our triangle 2x
-    mat4Copy(&mvp, &projection);
-    mat4Multiply(&mvp, &view);
-    mat4Translate(&mvp, vec3Set(&tmpvector, -200.0f, -100.0f, 0.5f)); // move a little to the left, a little up, and a little back
-    mat4Rotate(&mvp, (float) -rotation, vec3Set(&tmpvector, 0.0f, 0.0f, 1.0f));
-    glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
-  
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, textures[1]);
+		glUniform1i(tileId, 1);
+    
+    // and draw our triangles
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, NULL);
+    glDrawArrays(GL_TRIANGLES, 0, 40 * 40 * 3 * 2);
     glBindVertexArray(0);
   
     // unset our shader
@@ -317,4 +367,27 @@ void engineRender(int pWidth, int pHeight) {;
     // and draw some text
     fonsDrawText(fs, -ratio * 500.0f, 460.0f, info, NULL);
   };
+};
+
+void engineViewRotate(float pAngle) {
+  vec3 axis;
+  mat4 rotate;
+  
+  mat4Identity(&rotate);
+  mat4Rotate(&rotate, pAngle, vec3Set(&axis, 0.0, 0.0, 1.0));
+  mat4Multiply(&rotate, &view);
+  mat4Copy(&view, &rotate);
+};
+
+void engineViewMove(float pX, float pY) {
+  vec3 translate;
+  
+  // we apply our matrix "transposed" to get counter rotate our movement to our rotation
+  vec3Set(&translate
+    , pX * view.m[0][0] + pY * view.m[0][1]
+    , pX * view.m[1][0] + pY * view.m[1][1]
+    , 0.0  
+  );
+  
+  mat4Translate(&view, &translate);  
 };

@@ -18,4 +18,4 @@ More will be added soon....
 
 Links to articles
 ====
-- Part 1: http://bastiaanolij.blogspot.com.au/2015/03/getting-started-with-glfw.html
+http://bastiaanolij.blogspot.com.au/p/glfw-tutorials.html

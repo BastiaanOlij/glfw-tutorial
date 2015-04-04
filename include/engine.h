@@ -27,6 +27,7 @@
 #include "shaders.h"
 #include "fontstash/fontstash.h"
 #include "fontstash/gl3fontstash.h"
+#include "stb/stb_image.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,6 +40,8 @@ void engineLoad();
 void engineUnload();
 void engineUpdate(double pSecondsPassed);
 void engineRender(int pWidth, int pHeight);
+void engineViewRotate(float pAngle);
+void engineViewMove(float pX, float pY);
 
 #ifdef __cplusplus
 };
