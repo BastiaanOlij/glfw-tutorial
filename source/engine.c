@@ -15,6 +15,7 @@
 // shader program and buffers
 GLuint shaderProgram = NO_SHADER;
 GLint  mvpId = -1;
+GLint  invMvpId = -1;
 GLint  mapdataId = -1;
 GLint  tileId = -1;
 GLuint VAO = 0;
@@ -168,13 +169,13 @@ void load_shaders() {
   // all our error reporting is already done in these functions
   // so we can keep going as long as we have no error
   // and cleanup after ourselves...
-  shaderText = loadFile("tilemap.vs");
+  shaderText = loadFile("invtilemap.vs");
   if (shaderText != NULL) {
     vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
     free(shaderText);
     
     if (vertexShader != NO_SHADER) {
-      shaderText = loadFile("tilemap.fs");
+      shaderText = loadFile("invtilemap.fs");
 
       if (shaderText != NULL) {
         fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
@@ -185,6 +186,10 @@ void load_shaders() {
           mvpId = glGetUniformLocation(shaderProgram, "mvp");
           if (mvpId < 0) {
             engineErrCallback(mvpId, "Unknown uniform mvp");
+          };
+          invMvpId = glGetUniformLocation(shaderProgram, "invmvp");
+          if (invMvpId < 0) {
+            engineErrCallback(invMvpId, "Unknown uniform invmvp");            
           };
           mapdataId = glGetUniformLocation(shaderProgram, "mapdata");
           if (mapdataId < 0) {
@@ -304,7 +309,7 @@ void engineUpdate(double pSecondsPassed) {
 
 // engineRender is called to render our stuff
 void engineRender(int pWidth, int pHeight) {;
-  mat4 mvp, projection;
+  mat4 mvp, invmvp, projection;
   vec3 tmpvector;
   float ratio;
   
@@ -320,7 +325,7 @@ void engineRender(int pWidth, int pHeight) {;
   mat4Ortho(&projection, -ratio * 500.0, ratio * 500.0, 500.0f, -500.0f, 1.0f, -1.0f);
           
   // select our shader
-  if ((shaderProgram != NO_SHADER) && (mvpId >= 0)) {
+  if (shaderProgram != NO_SHADER) {
     glUseProgram(shaderProgram);
 
     // draw our map
@@ -328,20 +333,32 @@ void engineRender(int pWidth, int pHeight) {;
     // set our model-view-projection matrix first
     mat4Copy(&mvp, &projection);
     mat4Multiply(&mvp, &view);
-    glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
+
+    if (mvpId >= 0) {
+      glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);      
+    };
+    if (invMvpId >= 0) {
+      // also want our inverse..
+      mat4Inverse(&invmvp, &mvp);
+      glUniformMatrix4fv(invMvpId, 1, false, (const GLfloat *) invmvp.m);      
+    };
     
     // now tell it which textures to use
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, textures[0]);
-		glUniform1i(mapdataId, 0);
+    if (mapdataId >= 0) {
+  		glActiveTexture(GL_TEXTURE0);
+  		glBindTexture(GL_TEXTURE_2D, textures[0]);
+  		glUniform1i(mapdataId, 0);      
+    };
 
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, textures[1]);
-		glUniform1i(tileId, 1);
+    if (tileId >= 0) {
+  		glActiveTexture(GL_TEXTURE1);
+  		glBindTexture(GL_TEXTURE_2D, textures[1]);
+  		glUniform1i(tileId, 1);      
+    };
     
     // and draw our triangles
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 40 * 40 * 3 * 2);
+    glDrawArrays(GL_TRIANGLES, 0, 3 * 2); // this was 40 * 40 * 3 * 2
     glBindVertexArray(0);
   
     // unset our shader

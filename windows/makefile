@@ -18,7 +18,9 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\simple.fs \
   $(CONTENTSDIR)\simple.vs \
   $(CONTENTSDIR)\tilemap.fs \
-  $(CONTENTSDIR)\tilemap.vs
+  $(CONTENTSDIR)\tilemap.vs \
+  $(CONTENTSDIR)\invtilemap.fs \
+  $(CONTENTSDIR)\invtilemap.vs
 	
 $(CONTENTSDIR): 
   mkdir $(CONTENTSDIR)	
@@ -48,6 +50,12 @@ $(CONTENTSDIR)\tilemap.fs: ..\resources\tilemap.fs
   copy /B /Y $** $@
 
 $(CONTENTSDIR)\tilemap.vs: ..\resources\tilemap.vs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\invtilemap.fs: ..\resources\invtilemap.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\invtilemap.vs: ..\resources\invtilemap.vs
   copy /B /Y $** $@
   
 $(OBJECTDIR)\engine.obj: ..\source\engine.c ..\include\engine.h

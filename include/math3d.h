@@ -168,6 +168,7 @@ mat4* mat4Transpose(mat4* pTranspose);
 vec3* mat4ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat4* pMatrix);
 vec4* mat4ApplyToVec4(vec4* pSet, const vec4* pApplyTo, const mat4* pMatrix);
 mat4* mat4Multiply(mat4* pMultTo, const mat4* pMultWith);
+mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix);
 mat4* mat4Rotate(mat4* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis);
 mat4* mat4Translate(mat4 *pMatrix, const vec3* pAxis);
 mat4* mat4Ortho(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
@@ -726,6 +727,144 @@ mat4* mat4Multiply(mat4* pMultTo, const mat4* pMultWith) {
   };
   
   return pMultTo;
+};
+
+// Set the inverse of a 4x4 matrix
+mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix) {
+  // Based on http://stackoverflow.com/questions/1148309/inverting-a-4x4-matrix
+  
+  MATH3D_FLOAT det;
+  int i,j;
+
+  pInverse->m[0][0] =  pMatrix->m[1][1] * pMatrix->m[2][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[1][1] * pMatrix->m[2][3] * pMatrix->m[3][2] - 
+                       pMatrix->m[2][1] * pMatrix->m[1][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[2][1] * pMatrix->m[1][3] * pMatrix->m[3][2] +
+                       pMatrix->m[3][1] * pMatrix->m[1][2] * pMatrix->m[2][3] - 
+                       pMatrix->m[3][1] * pMatrix->m[1][3] * pMatrix->m[2][2];
+
+  pInverse->m[1][0] = -pMatrix->m[1][0] * pMatrix->m[2][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[1][0] * pMatrix->m[2][3] * pMatrix->m[3][2] + 
+                       pMatrix->m[2][0] * pMatrix->m[1][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[2][0] * pMatrix->m[1][3] * pMatrix->m[3][2] - 
+                       pMatrix->m[3][0] * pMatrix->m[1][2] * pMatrix->m[2][3] + 
+                       pMatrix->m[3][0] * pMatrix->m[1][3] * pMatrix->m[2][2];
+
+  pInverse->m[2][0] =  pMatrix->m[1][0] * pMatrix->m[2][1] * pMatrix->m[3][3] - 
+                       pMatrix->m[1][0] * pMatrix->m[2][3] * pMatrix->m[3][1] - 
+                       pMatrix->m[2][0] * pMatrix->m[1][1] * pMatrix->m[3][3] + 
+                       pMatrix->m[2][0] * pMatrix->m[1][2] * pMatrix->m[3][1] + 
+                       pMatrix->m[3][0] * pMatrix->m[1][1] * pMatrix->m[2][3] - 
+                       pMatrix->m[3][0] * pMatrix->m[1][3] * pMatrix->m[2][1];
+
+  pInverse->m[3][0] = -pMatrix->m[1][0] * pMatrix->m[2][1] * pMatrix->m[3][2] + 
+                       pMatrix->m[1][0] * pMatrix->m[2][2] * pMatrix->m[3][1] +
+                       pMatrix->m[2][0] * pMatrix->m[1][1] * pMatrix->m[3][2] - 
+                       pMatrix->m[2][0] * pMatrix->m[1][2] * pMatrix->m[3][1] - 
+                       pMatrix->m[3][0] * pMatrix->m[1][1] * pMatrix->m[2][2] + 
+                       pMatrix->m[3][0] * pMatrix->m[1][2] * pMatrix->m[2][1];
+
+  pInverse->m[0][1] = -pMatrix->m[0][1] * pMatrix->m[2][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[0][1] * pMatrix->m[2][3] * pMatrix->m[3][2] + 
+                       pMatrix->m[2][1] * pMatrix->m[0][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[2][1] * pMatrix->m[0][3] * pMatrix->m[3][2] - 
+                       pMatrix->m[3][1] * pMatrix->m[0][2] * pMatrix->m[2][3] + 
+                       pMatrix->m[3][1] * pMatrix->m[0][3] * pMatrix->m[2][2];
+
+  pInverse->m[1][1] =  pMatrix->m[0][0] * pMatrix->m[2][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[0][0] * pMatrix->m[2][3] * pMatrix->m[3][2] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][3] * pMatrix->m[3][2] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][2] * pMatrix->m[2][3] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][3] * pMatrix->m[2][2];
+
+  pInverse->m[2][1] = -pMatrix->m[0][0] * pMatrix->m[2][1] * pMatrix->m[3][3] + 
+                       pMatrix->m[0][0] * pMatrix->m[2][3] * pMatrix->m[3][1] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][1] * pMatrix->m[3][3] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][3] * pMatrix->m[3][1] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][1] * pMatrix->m[2][3] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][3] * pMatrix->m[2][1];
+
+  pInverse->m[3][1] =  pMatrix->m[0][0] * pMatrix->m[2][1] * pMatrix->m[3][2] - 
+                       pMatrix->m[0][0] * pMatrix->m[2][2] * pMatrix->m[3][1] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][1] * pMatrix->m[3][2] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][2] * pMatrix->m[3][1] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][1] * pMatrix->m[2][2] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][2] * pMatrix->m[2][1];
+
+  pInverse->m[0][2] =  pMatrix->m[0][1] * pMatrix->m[1][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[0][1] * pMatrix->m[1][2] * pMatrix->m[3][2] - 
+                       pMatrix->m[1][1] * pMatrix->m[0][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[1][1] * pMatrix->m[0][3] * pMatrix->m[3][2] + 
+                       pMatrix->m[3][1] * pMatrix->m[0][2] * pMatrix->m[1][3] - 
+                       pMatrix->m[3][1] * pMatrix->m[0][3] * pMatrix->m[1][2];
+
+  pInverse->m[1][2] = -pMatrix->m[0][0] * pMatrix->m[1][2] * pMatrix->m[3][3] + 
+                       pMatrix->m[0][0] * pMatrix->m[1][3] * pMatrix->m[3][2] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][2] * pMatrix->m[3][3] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][3] * pMatrix->m[3][2] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][2] * pMatrix->m[1][3] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][3] * pMatrix->m[1][2];
+
+  pInverse->m[2][2] =  pMatrix->m[0][0] * pMatrix->m[1][1] * pMatrix->m[3][3] - 
+                       pMatrix->m[0][0] * pMatrix->m[1][3] * pMatrix->m[3][1] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][1] * pMatrix->m[3][3] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][3] * pMatrix->m[3][1] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][1] * pMatrix->m[1][3] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][3] * pMatrix->m[1][1];
+
+  pInverse->m[3][2] = -pMatrix->m[0][0] * pMatrix->m[1][1] * pMatrix->m[3][2] + 
+                       pMatrix->m[0][0] * pMatrix->m[1][2] * pMatrix->m[3][1] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][1] * pMatrix->m[3][2] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][2] * pMatrix->m[3][1] - 
+                       pMatrix->m[3][0] * pMatrix->m[0][1] * pMatrix->m[1][2] + 
+                       pMatrix->m[3][0] * pMatrix->m[0][2] * pMatrix->m[1][1];
+
+  pInverse->m[0][3] = -pMatrix->m[0][1] * pMatrix->m[1][2] * pMatrix->m[2][3] + 
+                       pMatrix->m[0][1] * pMatrix->m[1][3] * pMatrix->m[2][2] + 
+                       pMatrix->m[1][1] * pMatrix->m[0][2] * pMatrix->m[2][3] - 
+                       pMatrix->m[1][1] * pMatrix->m[0][3] * pMatrix->m[2][2] - 
+                       pMatrix->m[2][1] * pMatrix->m[0][2] * pMatrix->m[1][3] + 
+                       pMatrix->m[2][1] * pMatrix->m[0][3] * pMatrix->m[1][2];
+
+  pInverse->m[1][3] =  pMatrix->m[0][0] * pMatrix->m[1][2] * pMatrix->m[2][3] - 
+                       pMatrix->m[0][0] * pMatrix->m[1][3] * pMatrix->m[2][2] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][2] * pMatrix->m[2][3] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][3] * pMatrix->m[2][2] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][2] * pMatrix->m[1][3] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][3] * pMatrix->m[1][2];
+
+  pInverse->m[2][3] = -pMatrix->m[0][0] * pMatrix->m[1][1] * pMatrix->m[2][3] + 
+                       pMatrix->m[0][0] * pMatrix->m[1][3] * pMatrix->m[2][1] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][1] * pMatrix->m[2][3] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][3] * pMatrix->m[2][1] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][1] * pMatrix->m[1][3] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][3] * pMatrix->m[1][1];
+
+  pInverse->m[3][3] =  pMatrix->m[0][0] * pMatrix->m[1][1] * pMatrix->m[2][2] - 
+                       pMatrix->m[0][0] * pMatrix->m[1][2] * pMatrix->m[2][1] - 
+                       pMatrix->m[1][0] * pMatrix->m[0][1] * pMatrix->m[2][2] + 
+                       pMatrix->m[1][0] * pMatrix->m[0][2] * pMatrix->m[2][1] + 
+                       pMatrix->m[2][0] * pMatrix->m[0][1] * pMatrix->m[1][2] - 
+                       pMatrix->m[2][0] * pMatrix->m[0][2] * pMatrix->m[1][1];
+  
+  det = pMatrix->m[0][0] * pInverse->m[0][0] + 
+        pMatrix->m[0][1] * pInverse->m[1][0] + 
+        pMatrix->m[0][2] * pInverse->m[2][0] + 
+        pMatrix->m[0][3] * pInverse->m[3][0];
+
+  if (det == 0)
+    return NULL;
+
+  det = 1.0 / det;
+
+  for (i = 0; i < 4; i++) {
+    for (j = 0; j < 4; j++) {
+      pInverse->m[i][j] = pInverse->m[i][j] * det;
+    };
+  };
+       
+  return pInverse;
 };
 
 // Applies a rotation matrix to our matrix by rotating around an axis by a certain degrees
