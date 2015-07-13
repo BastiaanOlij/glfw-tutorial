@@ -16,12 +16,12 @@ void main() {
 	//0/3--------4
 
 	const vec3 vertices[] = vec3[](
-		vec3(-0.5,  0.5, 0.0),
-		vec3( 0.5, -0.5, 0.0),
-		vec3(-0.5, -0.5, 0.0),
-		vec3(-0.5,  0.5, 0.0),
-		vec3( 0.5,  0.5, 0.0),
-		vec3( 0.5, -0.5, 0.0)
+		vec3(-0.5,  0.5, 0.9),
+		vec3( 0.5, -0.5, 0.9),
+		vec3(-0.5, -0.5, 0.9),
+		vec3(-0.5,  0.5, 0.9),
+		vec3( 0.5,  0.5, 0.9),
+		vec3( 0.5, -0.5, 0.9)
 	);
 
 	const vec2 texcoord[] = vec2[](
@@ -43,9 +43,6 @@ void main() {
   // figure out our vertex position
 	vec4 V = vec4((vertices[v] + vec3(float(x - 20), float(y - 20), 0.0)), 1.0);
   
-  // scale it to a usable size
-  V.xy *= 100.0; 
-
   // and project it
   gl_Position = mvp * V;
 

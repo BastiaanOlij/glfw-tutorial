@@ -160,6 +160,7 @@ mat3* mat3Transpose(mat3* pTranspose);
 vec3* mat3ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat3* pMatrix);
 mat3* mat3Multiply(mat3* pMultTo, const mat3* pMultWith);
 mat3* mat3Rotate(mat3* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis);
+mat3* mat3Scale(mat3 *pMatrix, const vec3* pScale);
 
 // mat4 interface
 mat4* mat4Copy(mat4* pDest, const mat4* pSource);
@@ -171,6 +172,7 @@ mat4* mat4Multiply(mat4* pMultTo, const mat4* pMultWith);
 mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix);
 mat4* mat4Rotate(mat4* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis);
 mat4* mat4Translate(mat4 *pMatrix, const vec3* pAxis);
+mat4* mat4Scale(mat4 *pMatrix, const vec3* pScale);
 mat4* mat4Ortho(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Frustum(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT fov, MATH3D_FLOAT aspect, MATH3D_FLOAT znear, MATH3D_FLOAT zfar);
@@ -634,6 +636,18 @@ mat3* mat3Rotate(mat3* pMatrix, MATH3D_FLOAT pAngle, const vec3* pAxis) {
   return mat3Multiply(pMatrix, &R);
 };
 
+// Apply a scale to our matrix
+mat3* mat3Scale(mat3 *pMatrix, const vec3* pScale) {
+  mat3 S;
+  
+  mat3Identity(&S);
+  S.m[0][0] = pScale->x;
+  S.m[1][1] = pScale->y;
+  S.m[2][2] = pScale->z;
+  
+  return mat3Multiply(pMatrix, &S);
+};
+
 ////////////////////////////////////////////////////////////////////////////////////
 // mat4
 
@@ -891,6 +905,18 @@ mat4* mat4Translate(mat4 *pMatrix, const vec3* pAxis) {
   translate.m[3][2] = pAxis->z;
 
   return mat4Multiply(pMatrix, &translate);
+};
+
+// Apply a scale to our matrix
+mat4* mat4Scale(mat4 *pMatrix, const vec3* pScale) {
+  mat4 S;
+  
+  mat4Identity(&S);
+  S.m[0][0] = pScale->x;
+  S.m[1][1] = pScale->y;
+  S.m[2][2] = pScale->z;
+  
+  return mat4Multiply(pMatrix, &S);
 };
 
 // Applies an orthographic projection. This allows a 2D projection where Z is only used for layering.

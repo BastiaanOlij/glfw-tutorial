@@ -13,11 +13,8 @@
 // For now we just some global state to make life easy
 
 // shader program and buffers
-GLuint shaderProgram = NO_SHADER;
-GLint  mvpId = -1;
-GLint  invMvpId = -1;
-GLint  mapdataId = -1;
-GLint  tileId = -1;
+tileshader ts = { NO_SHADER, -1, -1, 0, -1, 0 };
+
 GLuint VAO = 0;
 GLuint textures[2] = { 0, 0 };
 
@@ -88,6 +85,10 @@ EngineError engineErrCallback = NULL;
 // GLFWs error handler so you can use the same one
 void engineSetErrorCallback(EngineError pCallback) {
   engineErrCallback = pCallback;
+  
+  // Set our callbacks in our support libraries
+  shaderSetErrorCallback(engineErrCallback);
+  tsSetErrorCallback(engineErrCallback);
 };
 
 //////////////////////////////////////////////////////////
@@ -160,66 +161,25 @@ char* loadFile(const char* pFileName) {
 };
 
 void load_shaders() {
-  char* shaderText = NULL;
-  GLuint vertexShader = NO_SHADER, fragmentShader = NO_SHADER;
-  
-  // set our error callback...
-  shaderSetErrorCallback(engineErrCallback);
-  
-  // all our error reporting is already done in these functions
-  // so we can keep going as long as we have no error
-  // and cleanup after ourselves...
-  shaderText = loadFile("invtilemap.vs");
-  if (shaderText != NULL) {
-    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
-    free(shaderText);
-    
-    if (vertexShader != NO_SHADER) {
-      shaderText = loadFile("invtilemap.fs");
-
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          shaderProgram = shaderLink(2, vertexShader, fragmentShader);
-          mvpId = glGetUniformLocation(shaderProgram, "mvp");
-          if (mvpId < 0) {
-            engineErrCallback(mvpId, "Unknown uniform mvp");
-          };
-          invMvpId = glGetUniformLocation(shaderProgram, "invmvp");
-          if (invMvpId < 0) {
-            engineErrCallback(invMvpId, "Unknown uniform invmvp");            
-          };
-          mapdataId = glGetUniformLocation(shaderProgram, "mapdata");
-          if (mapdataId < 0) {
-            engineErrCallback(mapdataId, "Unknown uniform mapdata");
-          };
-          tileId = glGetUniformLocation(shaderProgram, "tiles");
-          if (tileId < 0) {
-            engineErrCallback(tileId, "Unknown uniform tiles");
-          };
-        };
-                
-        // no longer need this...
-        glDeleteShader(fragmentShader);
-      };
-      
-      // no longer need this...
-      glDeleteShader(vertexShader);
-    };
-  };
+  // load our tilemap shader
+  tsSetLoadFileFunc(loadFile);
+  tsLoad(&ts);
 };
 
 void unload_shaders() {
-  if (shaderProgram != NO_SHADER) {
-    glDeleteProgram(shaderProgram);
-    shaderProgram = NO_SHADER;
-  };
+  tsUnload(&ts);
 };
 
 //////////////////////////////////////////////////////////
 // Objects
+
+void setTexture(GLuint pTexture, GLint pFilter, GLint pWrap) {
+  glBindTexture(GL_TEXTURE_2D, pTexture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pWrap);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);  
+};
 
 void load_objects() {
 	int x, y, comp;
@@ -229,27 +189,21 @@ void load_objects() {
   glGenVertexArrays(1, &VAO);
   
   // Need to create our texture objects
-  glGenTextures(2, textures);
+  glGenTextures(TEXT_COUNT, textures);
   
   // now load in our map texture into textures[0]
-	glBindTexture(GL_TEXTURE_2D, textures[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	setTexture(textures[TEXT_MAPDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 40, 40, 0, GL_RED, GL_UNSIGNED_BYTE, mapdata);
+  ts.mapdataText = textures[TEXT_MAPDATA];
   
-  // and we load our tiled map
+  // and we load our tiled map into textures[TEXT_TILEDATA]
 	data = stbi_load("desert256.png", &x, &y, &comp, 4);
   if (data == 0) {
     engineErrCallback(-1, "Couldn't load desert256.png");
   } else {
-  	glBindTexture(GL_TEXTURE_2D, textures[1]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  	setTexture(textures[TEXT_TILEDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    ts.tileText = textures[TEXT_TILEDATA];
 		
 		stbi_image_free(data);
   };
@@ -262,7 +216,7 @@ void load_objects() {
 };
 
 void unload_objects() {
-  glDeleteTextures(2, textures);
+  glDeleteTextures(TEXT_COUNT, textures);
   glDeleteVertexArrays(1, &VAO);
 };
 
@@ -313,6 +267,9 @@ void engineRender(int pWidth, int pHeight) {;
   vec3 tmpvector;
   float ratio;
   
+  // select our default VAO so we can render stuff that doesn't need our VAO
+  glBindVertexArray(VAO);
+  
   // enable our depth test, with this disabled our second triangle paints over our first..
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
@@ -324,47 +281,16 @@ void engineRender(int pWidth, int pHeight) {;
   mat4Identity(&projection);
   mat4Ortho(&projection, -ratio * 500.0, ratio * 500.0, 500.0f, -500.0f, 1.0f, -1.0f);
           
-  // select our shader
-  if (shaderProgram != NO_SHADER) {
-    glUseProgram(shaderProgram);
-
-    // draw our map
-    
-    // set our model-view-projection matrix first
-    mat4Copy(&mvp, &projection);
-    mat4Multiply(&mvp, &view);
-
-    if (mvpId >= 0) {
-      glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);      
-    };
-    if (invMvpId >= 0) {
-      // also want our inverse..
-      mat4Inverse(&invmvp, &mvp);
-      glUniformMatrix4fv(invMvpId, 1, false, (const GLfloat *) invmvp.m);      
-    };
-    
-    // now tell it which textures to use
-    if (mapdataId >= 0) {
-  		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, textures[0]);
-  		glUniform1i(mapdataId, 0);      
-    };
-
-    if (tileId >= 0) {
-  		glActiveTexture(GL_TEXTURE1);
-  		glBindTexture(GL_TEXTURE_2D, textures[1]);
-  		glUniform1i(tileId, 1);      
-    };
-    
-    // and draw our triangles
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3 * 2); // this was 40 * 40 * 3 * 2
-    glBindVertexArray(0);
+  // draw our tiled background
+  tsRender(&ts, &projection, &view);
   
-    // unset our shader
-    glUseProgram(0);
-  };
+  // unset stuff
+  glBindVertexArray(0);
+  glUseProgram(0);
   
+  ////////////////////////////////////
+  // UI
+    
   // change our state a little
   glDisable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);

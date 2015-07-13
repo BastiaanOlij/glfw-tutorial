@@ -21,6 +21,9 @@
 #include <GLFW/glfw3.h>
 
 // include some standard libraries
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 // include support libraries
 #include "math3d.h"
@@ -28,6 +31,14 @@
 #include "fontstash/fontstash.h"
 #include "fontstash/gl3fontstash.h"
 #include "stb/stb_image.h"
+#include "tilemap.h"
+
+// enumerations
+enum texture_types {
+  TEXT_MAPDATA,
+  TEXT_TILEDATA,
+  TEXT_COUNT
+};
 
 #ifdef __cplusplus
 extern "C" {

@@ -12,9 +12,6 @@
 #include "engine.h"
 
 // include some standard libraries
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #ifdef __APPLE__
 #include <syslog.h>
 #endif

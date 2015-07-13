@@ -15,12 +15,8 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\glew32.dll \
   $(CONTENTSDIR)\DroidSerif-Regular.ttf \
   $(CONTENTSDIR)\desert256.png \
-  $(CONTENTSDIR)\simple.fs \
-  $(CONTENTSDIR)\simple.vs \
   $(CONTENTSDIR)\tilemap.fs \
-  $(CONTENTSDIR)\tilemap.vs \
-  $(CONTENTSDIR)\invtilemap.fs \
-  $(CONTENTSDIR)\invtilemap.vs
+  $(CONTENTSDIR)\tilemap.vs
 	
 $(CONTENTSDIR): 
   mkdir $(CONTENTSDIR)	
@@ -40,24 +36,12 @@ $(CONTENTSDIR)\DroidSerif-Regular.ttf: ..\resources\DroidSerif-Regular.ttf
 $(CONTENTSDIR)\desert256.png: ..\resources\desert256.png
   copy /B /Y $** $@
 	
-$(CONTENTSDIR)\simple.fs: ..\resources\simple.fs
-  copy /B /Y $** $@
-
-$(CONTENTSDIR)\simple.vs: ..\resources\simple.vs
-  copy /B /Y $** $@
-
 $(CONTENTSDIR)\tilemap.fs: ..\resources\tilemap.fs
   copy /B /Y $** $@
 
 $(CONTENTSDIR)\tilemap.vs: ..\resources\tilemap.vs
   copy /B /Y $** $@
 
-$(CONTENTSDIR)\invtilemap.fs: ..\resources\invtilemap.fs
-  copy /B /Y $** $@
-
-$(CONTENTSDIR)\invtilemap.vs: ..\resources\invtilemap.vs
-  copy /B /Y $** $@
-  
 $(OBJECTDIR)\engine.obj: ..\source\engine.c ..\include\engine.h
   cl $(CFLAGS) /Fo$@ ..\source\engine.c
 

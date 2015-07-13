@@ -11,6 +11,7 @@ CONTENTSDIR = ../build/$(APPNAME).app/Contents
 OBJECTS = $(patsubst ../source/%,$(OBJECTDIR)/%,$(patsubst %.c,%.o,$(wildcard ../source/*.c)))
 OBJECTS += $(patsubst ../source/%,$(OBJECTDIR)/%,$(patsubst %.cpp,%.o,$(wildcard ../source/*.cpp)))
 RESOURCES = $(patsubst ../Resources/%,$(CONTENTSDIR)/Resources/%,$(wildcard ../Resources/*.*))
+RESOURCES += $(CONTENTSDIR)/Resources/app.icns
 
 all: $(CONTENTSDIR)/MacOS \
 	$(CONTENTSDIR)/Info.pList \
@@ -21,6 +22,12 @@ $(CONTENTSDIR)/MacOS:
 	mkdir -p $(CONTENTSDIR)/MacOS
   
 $(CONTENTSDIR)/Info.pList: Info.plist
+	cp -f $^ $@
+	@chmod 444 $@
+
+$(CONTENTSDIR)/Resources/app.icns: app.icns
+	@mkdir -p $(@D)
+	@chmod 755 $(@D)
 	cp -f $^ $@
 	@chmod 444 $@
 
