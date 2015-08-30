@@ -13,10 +13,11 @@
 // For now we just some global state to make life easy
 
 // shader program and buffers
-tileshader ts = { NO_SHADER, -1, -1, 0, -1, 0 };
+newtileshader(ts);
+newspritesheet(sp);
 
 GLuint VAO = 0;
-GLuint textures[2] = { 0, 0 };
+GLuint textures[TEXT_COUNT] = { 0, 0, 0 };
 
 // and some globals for our fonts
 FONScontext *	fs = NULL;
@@ -77,6 +78,67 @@ unsigned char mapdata[1600] = {
   29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29,29
 };
 
+// sprite sheet data for conrad
+sprite conradSpriteSheet[] = {
+// row 1
+     0.0,  0.0, 20.0, 78.0,  //  0 -- turn from looking left
+    20.0,  0.0, 26.0, 78.0,  //  1
+    46.0,  0.0, 25.0, 78.0,  //  2
+    71.0,  0.0, 25.0, 78.0,  //  3
+    96.0,  0.0, 27.0, 78.0,  //  4
+   123.0,  0.0, 25.0, 78.0,  //  5
+   148.0,  0.0, 21.0, 78.0,  //  6 -- to looking right
+   169.0,  0.0, 27.0, 78.0,  //  7 -- start walking left
+   196.0,  0.0, 26.0, 78.0,  //  8
+   222.0,  0.0, 24.0, 78.0,  //  9
+   246.0,  0.0, 20.0, 78.0,  // 10
+   266.0,  0.0, 26.0, 78.0,  // 11 -- finish start walking left
+   292.0,  0.0, 31.0, 78.0,  // 12 -- start walking left
+   323.0,  0.0, 45.0, 78.0,  // 13 
+   368.0,  0.0, 45.0, 78.0,  // 14
+   413.0,  0.0, 39.0, 80.0,  // 15
+   452.0,  0.0, 30.0, 80.0,  // 16
+   482.0,  0.0, 26.0, 80.0,  // 17
+   508.0,  0.0, 38.0, 80.0,  // 18
+   546.0,  0.0, 48.0, 80.0,  // 19
+   594.0,  0.0, 46.0, 80.0,  // 20
+   640.0,  0.0, 36.0, 82.0,  // 21
+   676.0,  0.0, 30.0, 82.0,  // 22
+   706.0,  0.0, 28.0, 82.0,  // 23 -- finished walking left 
+    
+// row 2  
+     0.0, 96.0, 20.0, 78.0,  // 24 -- get down
+    20.0, 96.0, 22.0, 78.0,  // 25
+    42.0, 96.0, 26.0, 78.0,  // 26
+    68.0, 96.0, 28.0, 78.0,  // 27
+    96.0, 96.0, 30.0, 78.0,  // 28
+   126.0, 96.0, 30.0, 78.0,  // 29
+   156.0, 96.0, 30.0, 78.0,  // 30
+   186.0, 96.0, 30.0, 78.0,  // 31 -- finish get down
+   216.0, 96.0, 70.0, 78.0,  // 32 -- start roll
+   286.0, 96.0, 80.0, 78.0,  // 33
+   366.0, 96.0, 70.0, 80.0,  // 34
+   436.0, 96.0, 60.0, 80.0,  // 35
+   496.0, 96.0, 58.0, 80.0,  // 36
+   554.0, 96.0, 50.0, 80.0,  // 37
+   604.0, 96.0, 42.0, 80.0,  // 38
+   646.0, 96.0, 42.0, 80.0,  // 39
+   688.0, 96.0, 44.0, 80.0,  // 40
+   732.0, 96.0, 44.0, 80.0,  // 41 --
+
+// row 3  
+     0.0, 188.0, 40.0, 76.0,  // 42
+    40.0, 188.0, 48.0, 76.0,  // 43
+    88.0, 188.0, 48.0, 78.0,  // 44
+   136.0, 188.0, 48.0, 80.0,  // 45 -- finish roll
+   184.0, 188.0, 46.0, 80.0,  // 46 -- get up
+   230.0, 188.0, 36.0, 80.0,  // 47
+   266.0, 188.0, 32.0, 80.0,  // 48
+   298.0, 188.0, 28.0, 80.0,  // 49 -- finish get up
+// need to complete this...
+
+};
+
 //////////////////////////////////////////////////////////
 // error handling
 EngineError engineErrCallback = NULL;
@@ -89,6 +151,7 @@ void engineSetErrorCallback(EngineError pCallback) {
   // Set our callbacks in our support libraries
   shaderSetErrorCallback(engineErrCallback);
   tsSetErrorCallback(engineErrCallback);
+  spSetErrorCallback(engineErrCallback);
 };
 
 //////////////////////////////////////////////////////////
@@ -164,10 +227,15 @@ void load_shaders() {
   // load our tilemap shader
   tsSetLoadFileFunc(loadFile);
   tsLoad(&ts);
+  
+  // load our spritesheet shader
+  spSetLoadFileFunc(loadFile);
+  spLoad(&sp);
 };
 
 void unload_shaders() {
   tsUnload(&ts);
+  spUnload(&sp);
 };
 
 //////////////////////////////////////////////////////////
@@ -191,10 +259,11 @@ void load_objects() {
   // Need to create our texture objects
   glGenTextures(TEXT_COUNT, textures);
   
-  // now load in our map texture into textures[0]
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+  // now load in our map texture into textures[TEXT_MAPDATA]
 	setTexture(textures[TEXT_MAPDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 40, 40, 0, GL_RED, GL_UNSIGNED_BYTE, mapdata);
-  ts.mapdataText = textures[TEXT_MAPDATA];
+  ts.mapdataTexture = textures[TEXT_MAPDATA];
   
   // and we load our tiled map into textures[TEXT_TILEDATA]
 	data = stbi_load("desert256.png", &x, &y, &comp, 4);
@@ -203,10 +272,29 @@ void load_objects() {
   } else {
   	setTexture(textures[TEXT_TILEDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    ts.tileText = textures[TEXT_TILEDATA];
+    ts.tileTexture = textures[TEXT_TILEDATA];
 		
 		stbi_image_free(data);
   };
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+  // now load in our sprite texture into textures[TEXT_SPRITEDATA]
+	data = stbi_load("conrad.png", &x, &y, &comp, 4);
+  if (data == 0) {
+    engineErrCallback(-1, "Couldn't load conrad.png");
+  } else {
+  	setTexture(textures[TEXT_SPRITEDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    sp.spriteTexture = textures[TEXT_SPRITEDATA];
+    sp.spriteWidth = x;
+    sp.spriteHeight = y;
+		
+		stbi_image_free(data);
+  };
+
+  // normally we would load this from a file or another source
+  // copying from a memory buffer like this is a bit wasteful.
+  spAddSprites(&sp, conradSpriteSheet, sizeof(conradSpriteSheet) / sizeof(sprite));
 
   // and lets be nice and unbind...
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -216,6 +304,10 @@ void load_objects() {
 };
 
 void unload_objects() {
+  sp.spriteTexture = 0;
+  ts.tileTexture = 0;
+  ts.mapdataTexture = 0;
+  
   glDeleteTextures(TEXT_COUNT, textures);
   glDeleteVertexArrays(1, &VAO);
 };
@@ -263,9 +355,10 @@ void engineUpdate(double pSecondsPassed) {
 
 // engineRender is called to render our stuff
 void engineRender(int pWidth, int pHeight) {;
-  mat4 mvp, invmvp, projection;
+  mat4 mvp, invmvp, projection, modelview;
   vec3 tmpvector;
   float ratio;
+  int index;
   
   // select our default VAO so we can render stuff that doesn't need our VAO
   glBindVertexArray(VAO);
@@ -283,6 +376,12 @@ void engineRender(int pWidth, int pHeight) {;
           
   // draw our tiled background
   tsRender(&ts, &projection, &view);
+  
+  // draw our character
+  index = (frames / 10.0);
+  index = index % sp.spriteCount;
+  mat4Copy(&modelview, &view);
+  spRender(&sp, &projection, &modelview, index, true);
   
   // unset stuff
   glBindVertexArray(0);
@@ -305,7 +404,7 @@ void engineRender(int pWidth, int pHeight) {;
     gl3fonsProjection(fs, (GLfloat *)projection.m);
 
     // what text shall we draw?
-    sprintf(info,"FPS: %0.1f", fps);
+    sprintf(info,"FPS: %0.1f, index = %i", fps, index);
         
     // and draw some text
     fonsDrawText(fs, -ratio * 500.0f, 460.0f, info, NULL);

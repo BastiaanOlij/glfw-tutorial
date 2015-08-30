@@ -32,11 +32,13 @@
 #include "fontstash/gl3fontstash.h"
 #include "stb/stb_image.h"
 #include "tilemap.h"
+#include "spritesheet.h"
 
 // enumerations
 enum texture_types {
   TEXT_MAPDATA,
   TEXT_TILEDATA,
+  TEXT_SPRITEDATA,
   TEXT_COUNT
 };
 

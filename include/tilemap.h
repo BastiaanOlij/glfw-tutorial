@@ -4,7 +4,7 @@
  * This library is given as a single file implementation.
  * Include this in any file that requires it but in one
  * file, and one file only, proceed it with:
- * #define SHADER_IMPLEMENTATION
+ * #define TILEMAP_IMPLEMENTATION
  *
  * Note that OpenGL headers need to be included before 
  * this file is included as it uses several of its 
@@ -16,35 +16,37 @@
 #ifndef tilemaph
 #define tilemaph
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // structure for containing our tile shader
 typedef struct tileshader {
   GLuint program;
   GLint  mvpId;
   GLint  mapdataId;
-  GLuint mapdataText;
+  GLuint mapdataTexture;
   GLint  tileId;
-  GLuint tileText;
+  GLuint tileTexture;
 } tileshader;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef void(* TSError)(int, const char*);
-typedef char*(* TSloadFile)(const char*);
-
 void tsSetErrorCallback(TSError pCallback);
+
+typedef char*(* TSloadFile)(const char*);
 void tsSetLoadFileFunc(TSloadFile pLoadFile);
 
 void tsLoad(tileshader* pTS);
 void tsUnload(tileshader* pTS);
 void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView);
 
+#define newtileshader(ts) tileshader ts = { NO_SHADER, -1, -1, 0, -1, 0 }
+
 #ifdef __cplusplus
 };
 #endif
 
-#ifdef SHADER_IMPLEMENTATION
+#ifdef TILEMAP_IMPLEMENTATION
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -69,7 +71,7 @@ void tsSetLoadFileFunc(TSloadFile pLoadFile) {
 };
 
 //////////////////////////////////////////////////////////
-// shader
+// tile shaders
 
 // loads, compiles and links our tileshader
 void tsLoad(tileshader* pTS) {
@@ -148,13 +150,13 @@ void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView) {
     // now tell it which textures to use
     if (pTS->mapdataId >= 0) {
   		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, pTS->mapdataText);
+  		glBindTexture(GL_TEXTURE_2D, pTS->mapdataTexture);
   		glUniform1i(pTS->mapdataId, 0);      
     };
 
     if (pTS->tileId >= 0) {
   		glActiveTexture(GL_TEXTURE1);
-  		glBindTexture(GL_TEXTURE_2D, pTS->tileText);
+  		glBindTexture(GL_TEXTURE_2D, pTS->tileTexture);
   		glUniform1i(pTS->tileId, 1);      
     };
     

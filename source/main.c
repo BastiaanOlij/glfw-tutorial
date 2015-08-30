@@ -4,6 +4,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define MATH3D_IMPLEMENTATION
 #define SHADER_IMPLEMENTATION
+#define TILEMAP_IMPLEMENTATION
+#define SPRITE_IMPLEMENTATION
 
 // Uncomment to run full screen, we'll make this better some day
 // #define GLFW_FULLSCREEN
