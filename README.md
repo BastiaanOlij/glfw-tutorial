@@ -14,7 +14,15 @@ This work is dependend on a number of other bits of source code.
 First and foremost: http://www.glfw.org
 GLFW is the cross platform framework we're using here. For convenience I've included the main header and compiled binaries in this repository but obviously I recommend you download the most recent source and compile it.
 
-More will be added soon....
+Another project I use is: http://glew.sourceforge.net/
+GLEW is a library that handles calls to parts of OpenGL that are dependent on the OpenGL version or any differences between platforms and vendors.
+
+And then: https://github.com/nothings/stb
+STB is a collection of single file C libraries that do nice things like image loading. 
+
+And finally (for now): https://github.com/memononen/fontstash
+Fontstash is a single file C library using the font rendering logic in STB to output text to screen in OpenGL.
+Note my own fork of this project as I've added support for rendering using VAOs and VBOs which is a prerequisit with OpenGL 3 on a Mac.
 
 Links to articles
 ====
