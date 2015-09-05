@@ -35,29 +35,8 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
   } else if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
-    switch (key) {
-      case GLFW_KEY_O: {
-        engineViewRotate(-1.0);
-      } break;
-      case GLFW_KEY_P: {
-        engineViewRotate( 1.0);        
-      } break;
-      case GLFW_KEY_W: {
-        engineViewMove( 0.0,  5.0);        
-      } break;
-      case GLFW_KEY_S: {
-        engineViewMove( 0.0, -5.0);        
-      } break;
-      case GLFW_KEY_A: {
-        engineViewMove( 5.0,  0.0);        
-      } break;
-      case GLFW_KEY_D: {
-        engineViewMove(-5.0,  0.0);        
-      } break;
-      default: {
-        // ignore
-      } break;
-    };
+    // let our engine know the key was pressed and let it do what it needs to do..
+    engineKeyPressed(key);
   };
 };
 

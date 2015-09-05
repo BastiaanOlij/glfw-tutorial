@@ -34,6 +34,10 @@
 #include "tilemap.h"
 #include "spritesheet.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // enumerations
 enum texture_types {
   TEXT_MAPDATA,
@@ -42,9 +46,44 @@ enum texture_types {
   TEXT_COUNT
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+enum conrad_animations {
+  CR_ANIM_LOOK_LEFT,
+  CR_ANIM_TURN_LEFT_TO_RIGHT,
+  CR_ANIM_LOOK_RIGHT,
+  CR_ANIM_TURN_RIGHT_TO_LEFT,
+
+  CR_ANIM_WALK_RIGHT_1,
+  CR_ANIM_STOP_WALK_RIGHT,
+  CR_ANIM_WALK_RIGHT_2,
+
+  CR_ANIM_WALK_LEFT_1,
+  CR_ANIM_STOP_WALK_LEFT,
+  CR_ANIM_WALK_LEFT_2,
+  
+  CR_ANIM_GET_DOWN_RIGHT,
+  CR_ANIM_ROLL_RIGHT,
+  CR_ANIM_GET_UP_RIGHT,
+
+  CR_ANIM_GET_DOWN_LEFT,
+  CR_ANIM_ROLL_LEFT,
+  CR_ANIM_GET_UP_LEFT,
+  
+  CR_ANIM_JUMP_UP_RIGHT,
+  CR_ANIM_COME_DOWN_RIGHT,
+
+  CR_ANIM_JUMP_UP_LEFT,
+  CR_ANIM_COME_DOWN_LEFT,
+
+  CR_ANIM_COUNT
+};
+  
+typedef struct animation {
+  GLint     firstSprite;            // first sprite of animation
+  GLint     lastSprite;             // last sprite of animation
+  bool      flip;                   // flip sprite horizontally
+  GLfloat   moveX;                  // add this to our X after anim is finished
+  GLfloat   moveY;                  // add this to our Y after anim is finished  
+} animation;
 
 typedef void(* EngineError)(int, const char*);
 
@@ -53,8 +92,7 @@ void engineLoad();
 void engineUnload();
 void engineUpdate(double pSecondsPassed);
 void engineRender(int pWidth, int pHeight);
-void engineViewRotate(float pAngle);
-void engineViewMove(float pX, float pY);
+void engineKeyPressed(int pKey);
 
 #ifdef __cplusplus
 };

@@ -30,6 +30,8 @@ typedef struct sprite {
   GLfloat top;                    // top position of our sprite in our texture
   GLfloat width;                  // width of our sprite
   GLfloat height;                 // height of our sprite
+  GLfloat offsetx;                // horizontal offset
+  GLfloat offsety;                // vertical offset
 } sprite;
 
 typedef struct spritesheet {
@@ -45,6 +47,7 @@ typedef struct spritesheet {
   GLuint   spriteCount;           // number of sprites defined in our sprite sheet
   GLuint   maxSpriteCount;        // max number of sprites we can currently hold in memory
   sprite*  sprites;               // array of sprite info
+  GLfloat  spriteScale;           // scale to use for sprites
 } spritesheet;
 
 typedef void(* SPError)(int, const char*);
@@ -57,9 +60,9 @@ void spLoad(spritesheet* pSP);
 void spUnload(spritesheet* pSP);
 GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth, GLfloat pHeight);
 void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites);
-void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pFlip);
+void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip);
 
-#define newspritesheet(sp) spritesheet sp = { NO_SHADER, -1 -1, 0, 0, 0, -1, -1, -1, 0, 0, 0 }
+#define newspritesheet(sp) spritesheet sp = { NO_SHADER, -1, -1, 0, 0, 0, -1, -1, -1, 0, 0, 0, 3.0 }
 
 #ifdef __cplusplus
 };
@@ -213,7 +216,7 @@ void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites) {
 };
 
 // renders our tiles using our tile shader
-void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pFlip) {
+void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip) {
   mat4 mvp;
   vec3 tmpvector;
   sprite tmpsprite;
@@ -221,16 +224,16 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
   if ((pSP->program != NO_SHADER) && (pIndex < pSP->spriteCount)) {
     glUseProgram(pSP->program);
 
+    // get info about the sprite we're about to draw
+    tmpsprite = pSP->sprites[pIndex];
+
     // set our model-view-projection matrix first
     mat4Copy(&mvp, pProjection);
     mat4Multiply(&mvp, pModelView);
-    
-    // and lastly scale our x and y as we use our sprite size
-    if (pFlip) {
-      mat4Scale(&mvp, vec3Set(&tmpvector, -3.0, 3.0, 1.0));
-    } else {
-      mat4Scale(&mvp, vec3Set(&tmpvector, 3.0, 3.0, 1.0));          
-    };
+
+    // and lastly scale our x and y as we use our sprite size and apply our offset
+    mat4Scale(&mvp, vec3Set(&tmpvector, pHorzFlip ? -pSP->spriteScale : pSP->spriteScale, pVertFlip ? -pSP->spriteScale : pSP->spriteScale, 1.0));
+    mat4Translate(&mvp, vec3Set(&tmpvector, tmpsprite.offsetx, tmpsprite.offsety, 0.0));
     
     if (pSP->mvpId >= 0) {
       glUniformMatrix4fv(pSP->mvpId, 1, false, (const GLfloat *) mvp.m);      
@@ -242,9 +245,7 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
   		glBindTexture(GL_TEXTURE_2D, pSP->spriteTexture);
   		glUniform1i(pSP->spriteId, 0);      
     };
-    
-    tmpsprite = pSP->sprites[pIndex];
-    
+        
     // and tell it what to draw
     if (pSP->textureSizeId >= 0) {
   		glUniform2f(pSP->textureSizeId, pSP->spriteWidth, pSP->spriteHeight);
