@@ -16,6 +16,9 @@
 #ifndef tilemaph
 #define tilemaph
 
+// standard libraries we need...
+#include <stdarg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,7 +33,7 @@ typedef struct tileshader {
   GLuint tileTexture;
 } tileshader;
 
-typedef void(* TSError)(int, const char*);
+typedef void(* TSError)(int, const char*, ...);
 void tsSetErrorCallback(TSError pCallback);
 
 typedef char*(* TSloadFile)(const char*);

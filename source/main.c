@@ -18,8 +18,31 @@
 #include <syslog.h>
 #endif
 
+// for now make our window global to make our key handling easier
+GLFWwindow* window;
+
 // function for logging errors
-void error_callback(int error, const char* description) {
+void error_callback(int error, const char* description, ...) {
+  va_list args;
+  char fulldesc[2048];
+  
+  va_start(args, description);
+  vsprintf(fulldesc, description, args);
+  va_end(args);
+  
+#ifdef __APPLE__
+	// output to syslog
+	syslog(LOG_ALERT, "%i: %s", error, fulldesc);  
+#elif WIN32
+  // output to stderr
+  fprintf(stderr, "%i: %s", error, fulldesc);
+#else
+  // not sure what we're doing on other platforms yet
+#endif
+};
+
+// glfw version
+void error_callback_glfw(int error, const char* description) {
 #ifdef __APPLE__
 	// output to syslog
 	syslog(LOG_ALERT, "%i: %s", error, description);  
@@ -34,17 +57,24 @@ void error_callback(int error, const char* description) {
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, GL_TRUE);
-  } else if ((action == GLFW_PRESS) || (action == GLFW_REPEAT)) {
+  } else if (action == GLFW_PRESS) {
+    // let our engine know the key was pressed and let it do what it needs to do..
+    engineKeyPressed(key);    
+  } else if (action == GLFW_REPEAT) {    
     // let our engine know the key was pressed and let it do what it needs to do..
     engineKeyPressed(key);
+  } else if (action == GLFW_RELEASE) {
+    // nothing to do here for now..
   };
 };
 
-int main(void) {
-  GLFWwindow* window;
-  
+bool keypressed_callback(int pKey) {
+  return glfwGetKey(window, pKey) == GLFW_PRESS;
+};
+
+int main(void) {  
   // tell GLFW how to inform us of issues
-  glfwSetErrorCallback(error_callback);
+  glfwSetErrorCallback(error_callback_glfw);
 
   // see if we can initialize GLFW
   if (!glfwInit()) {
@@ -82,6 +112,7 @@ int main(void) {
     
     // load and initialize our engine
     engineSetErrorCallback(error_callback);
+    engineSetKeyPressedCallback(keypressed_callback);
     engineLoad();
 
     // and start our render loop
@@ -108,7 +139,8 @@ int main(void) {
     };
   
     // close our window
-    glfwDestroyWindow(window);  
+    glfwDestroyWindow(window);
+    window = NULL;
   };
   
   // lets be nice and cleanup

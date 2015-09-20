@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdarg.h>
 
 // include support libraries
 #include "math3d.h"
@@ -37,6 +38,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define SPRITE_SCALE 3.0
 
 // enumerations
 enum texture_types {
@@ -61,22 +64,33 @@ enum conrad_animations {
   CR_ANIM_WALK_LEFT_2,
   
   CR_ANIM_GET_DOWN_RIGHT,
+  CR_ANIM_STAY_DOWN_RIGHT,
   CR_ANIM_ROLL_RIGHT,
-  CR_ANIM_GET_UP_RIGHT,
+  CR_ANIM_REVROLL_RIGHT,
+  CR_ANIM_GET_UP_RIGHT_1,
+  CR_ANIM_GET_UP_RIGHT_2,
 
   CR_ANIM_GET_DOWN_LEFT,
+  CR_ANIM_STAY_DOWN_LEFT,
   CR_ANIM_ROLL_LEFT,
-  CR_ANIM_GET_UP_LEFT,
+  CR_ANIM_REVROLL_LEFT,
+  CR_ANIM_GET_UP_LEFT_1,
+  CR_ANIM_GET_UP_LEFT_2,
   
   CR_ANIM_JUMP_UP_RIGHT,
+  CR_ANIM_JUST_HANGING_RIGHT,
   CR_ANIM_COME_DOWN_RIGHT,
+  CR_ANIM_CLIMB_UP_RIGHT,
 
   CR_ANIM_JUMP_UP_LEFT,
+  CR_ANIM_JUST_HANGING_LEFT,
   CR_ANIM_COME_DOWN_LEFT,
+  CR_ANIM_CLIMB_UP_LEFT,
 
   CR_ANIM_COUNT
 };
   
+// structure to record information about an animation
 typedef struct animation {
   GLint     firstSprite;            // first sprite of animation
   GLint     lastSprite;             // last sprite of animation
@@ -85,9 +99,18 @@ typedef struct animation {
   GLfloat   moveY;                  // add this to our Y after anim is finished  
 } animation;
 
-typedef void(* EngineError)(int, const char*);
+// structure to control our characters with
+typedef struct action_map {
+  GLint     animationEnding;        // when this animation ends
+  GLint     startAnimation;         // start this animation
+  int       keys[5];                // if these keys are pressed (ignoring zeroes)
+} action_map;
+
+typedef void(* EngineError)(int, const char*, ...);
+typedef bool(* EngineKeyPressed)(int);
 
 void engineSetErrorCallback(EngineError pCallback);
+void engineSetKeyPressedCallback(EngineKeyPressed pCallback);
 void engineLoad();
 void engineUnload();
 void engineUpdate(double pSecondsPassed);

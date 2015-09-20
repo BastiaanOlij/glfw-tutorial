@@ -20,6 +20,9 @@
 #ifndef spritesheeth
 #define spritesheeth
 
+// standard libraries we need...
+#include <stdarg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,7 +53,7 @@ typedef struct spritesheet {
   GLfloat  spriteScale;           // scale to use for sprites
 } spritesheet;
 
-typedef void(* SPError)(int, const char*);
+typedef void(* SPError)(int, const char*, ...);
 void spSetErrorCallback(SPError pCallback);
 
 typedef char*(* SPloadFile)(const char*);

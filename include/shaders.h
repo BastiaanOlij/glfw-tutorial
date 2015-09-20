@@ -43,7 +43,7 @@ enum shaderErrors {
 extern "C" {
 #endif
   
-typedef void(* ShaderError)(int, const char*);
+typedef void(* ShaderError)(int, const char*, ...);
 
 void shaderSetErrorCallback(ShaderError pCallback);
 GLuint shaderCompile(GLenum pShaderType, const GLchar* pShaderText);
