@@ -25,12 +25,19 @@ extern "C" {
 
 // structure for containing our tile shader
 typedef struct tileshader {
-  GLuint program;
-  GLint  mvpId;
-  GLint  mapdataId;
-  GLuint mapdataTexture;
-  GLint  tileId;
-  GLuint tileTexture;
+  GLuint  program;
+  GLint   mvpId;
+  GLint   mapdataId;
+  GLint   mapSizeId;
+  GLuint  mapdataTexture;
+  vec2    mapSize;
+  GLfloat mapScale;
+  GLint   tileId;
+  GLuint  tileTexture;
+  GLint   tilesPerSideId;
+  GLuint  tilesPerSide;
+  GLint   textureSizeId;
+  GLfloat textureSize;
 } tileshader;
 
 typedef void(* TSError)(int, const char*, ...);
@@ -43,7 +50,7 @@ void tsLoad(tileshader* pTS);
 void tsUnload(tileshader* pTS);
 void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView);
 
-#define newtileshader(ts) tileshader ts = { NO_SHADER, -1, -1, 0, -1, 0 }
+#define newtileshader(ts) tileshader ts = { NO_SHADER, -1, -1, -1, 0, { 0.0, 0.0 }, 100.0, -1, 0, -1, 8, -1, 256.0 }
 
 #ifdef __cplusplus
 };
@@ -107,9 +114,21 @@ void tsLoad(tileshader* pTS) {
           if (pTS->mapdataId < 0) {
             tsErrCallback(pTS->mapdataId, "Unknown uniform mapdata");
           };
+          pTS->mapSizeId = glGetUniformLocation(pTS->program, "mapSize");
+          if (pTS->mapSizeId < 0) {
+            tsErrCallback(pTS->mapSizeId, "Unknown uniform mapSize");
+          };
           pTS->tileId = glGetUniformLocation(pTS->program, "tiles");
           if (pTS->tileId < 0) {
             tsErrCallback(pTS->tileId, "Unknown uniform tiles");
+          };
+          pTS->tilesPerSideId = glGetUniformLocation(pTS->program, "tilesPerSide");
+          if (pTS->tilesPerSideId < 0) {
+            tsErrCallback(pTS->tilesPerSideId, "Unknown uniform tilesPerSide");
+          };
+          pTS->textureSizeId = glGetUniformLocation(pTS->program, "textureSize");
+          if (pTS->textureSizeId < 0) {
+            tsErrCallback(pTS->textureSizeId, "Unknown uniform textureSize");
           };
         };
                 
@@ -144,17 +163,21 @@ void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView) {
     mat4Multiply(&mvp, pView);
     
     // and lastly scale our x and y as they are unified
-    mat4Scale(&mvp, vec3Set(&tmpvector, 100.0, 100.0, 1.0));
+    mat4Scale(&mvp, vec3Set(&tmpvector, pTS->mapScale, pTS->mapScale, 1.0));
 
     if (pTS->mvpId >= 0) {
       glUniformMatrix4fv(pTS->mvpId, 1, false, (const GLfloat *) mvp.m);      
     };
     
-    // now tell it which textures to use
+    // now tell it which textures to use and some more info about it
     if (pTS->mapdataId >= 0) {
   		glActiveTexture(GL_TEXTURE0);
   		glBindTexture(GL_TEXTURE_2D, pTS->mapdataTexture);
   		glUniform1i(pTS->mapdataId, 0);      
+    };
+
+    if (pTS->mapSizeId >= 0) {
+  		glUniform2f(pTS->mapSizeId, pTS->mapSize.x, pTS->mapSize.y);      
     };
 
     if (pTS->tileId >= 0) {
@@ -162,9 +185,15 @@ void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView) {
   		glBindTexture(GL_TEXTURE_2D, pTS->tileTexture);
   		glUniform1i(pTS->tileId, 1);      
     };
+    if (pTS->tilesPerSideId >= 0) {
+  		glUniform1i(pTS->tilesPerSideId, pTS->tilesPerSide);      
+    };
+    if (pTS->textureSizeId >= 0) {
+  		glUniform1f(pTS->textureSizeId, pTS->textureSize);      
+    };
     
     // and draw our triangles
-    glDrawArrays(GL_TRIANGLES, 0, 40 * 40 * 3 * 2);
+    glDrawArrays(GL_TRIANGLES, 0, pTS->mapSize.x * pTS->mapSize.y * 3 * 2);
   };
 };
 

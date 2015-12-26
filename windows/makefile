@@ -14,9 +14,12 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\$(APPNAME) \
   $(CONTENTSDIR)\glew32.dll \
   $(CONTENTSDIR)\DroidSerif-Regular.ttf \
-  $(CONTENTSDIR)\desert256.png \
+  $(CONTENTSDIR)\conrad.png \
+  $(CONTENTSDIR)\tiles.png \
   $(CONTENTSDIR)\tilemap.fs \
-  $(CONTENTSDIR)\tilemap.vs
+  $(CONTENTSDIR)\tilemap.vs \
+  $(CONTENTSDIR)\spritesheet.fs \
+  $(CONTENTSDIR)\spritesheet.vs
 	
 $(CONTENTSDIR): 
   mkdir $(CONTENTSDIR)	
@@ -33,13 +36,22 @@ $(CONTENTSDIR)\glew32.dll: ..\3rdparty\GL\glew32.dll
 $(CONTENTSDIR)\DroidSerif-Regular.ttf: ..\resources\DroidSerif-Regular.ttf
   copy /B /Y $** $@
 
-$(CONTENTSDIR)\desert256.png: ..\resources\desert256.png
+$(CONTENTSDIR)\conrad.png: ..\resources\conrad.png
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\tiles.png: ..\resources\tiles.png
   copy /B /Y $** $@
 	
 $(CONTENTSDIR)\tilemap.fs: ..\resources\tilemap.fs
   copy /B /Y $** $@
 
 $(CONTENTSDIR)\tilemap.vs: ..\resources\tilemap.vs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\spritesheet.fs: ..\resources\spritesheet.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\spritesheet.vs: ..\resources\spritesheet.vs
   copy /B /Y $** $@
 
 $(OBJECTDIR)\engine.obj: ..\source\engine.c ..\include\engine.h

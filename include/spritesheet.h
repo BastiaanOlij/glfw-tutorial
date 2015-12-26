@@ -40,13 +40,12 @@ typedef struct sprite {
 typedef struct spritesheet {
   GLuint   program;               // our shader program
   GLint    mvpId;                 // our model-view-projection matrix uniform ID
-  GLint    spriteId;              // our sprite texture sampler ID
-  GLuint   spriteTexture;         // our sprite texture ID
-  GLuint   spriteWidth;           // width of our sprite in pixels
-  GLuint   spriteHeight;          // height of our texture in pixels
+  GLint    textureId;             // our sprite texture sampler ID
+  GLuint   texture;               // our sprite texture
   GLint    textureSizeId;         // our texture size uniform ID
-  GLint    spriteLeftTopId;       // our sprite left/top uniform ID
+  vec2     textureSize;           // size of our sprite texture in pixels
   GLint    spriteSizeId;          // our sprite size uniform ID
+  GLint    spriteLeftTopId;       // our sprite left/top uniform ID
   GLuint   spriteCount;           // number of sprites defined in our sprite sheet
   GLuint   maxSpriteCount;        // max number of sprites we can currently hold in memory
   sprite*  sprites;               // array of sprite info
@@ -65,7 +64,7 @@ GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth,
 void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites);
 void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip);
 
-#define newspritesheet(sp) spritesheet sp = { NO_SHADER, -1, -1, 0, 0, 0, -1, -1, -1, 0, 0, 0, 3.0 }
+#define newspritesheet(sp) spritesheet sp = { NO_SHADER, -1, -1, 0, -1, { 0.0, 0.0 }, -1, -1, 0, 0, 0, 3.0 }
 
 #ifdef __cplusplus
 };
@@ -125,9 +124,9 @@ void spLoad(spritesheet* pSP) {
           if (pSP->mvpId < 0) {
             spErrCallback(pSP->mvpId, "Unknown uniform mvp");
           };
-          pSP->spriteId = glGetUniformLocation(pSP->program, "sprite");
-          if (pSP->spriteId < 0) {
-            spErrCallback(pSP->spriteId, "Unknown uniform sprite");
+          pSP->textureId = glGetUniformLocation(pSP->program, "spriteTexture");
+          if (pSP->textureId < 0) {
+            spErrCallback(pSP->textureId, "Unknown uniform spriteTexture");
           };
           pSP->textureSizeId = glGetUniformLocation(pSP->program, "textureSize");
           if (pSP->textureSizeId < 0) {
@@ -243,15 +242,15 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
     };
     
     // now tell it which textures to use
-    if (pSP->spriteId >= 0) {
+    if (pSP->textureId >= 0) {
   		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, pSP->spriteTexture);
-  		glUniform1i(pSP->spriteId, 0);      
+  		glBindTexture(GL_TEXTURE_2D, pSP->texture);
+  		glUniform1i(pSP->textureId, 0);      
     };
         
     // and tell it what to draw
     if (pSP->textureSizeId >= 0) {
-  		glUniform2f(pSP->textureSizeId, pSP->spriteWidth, pSP->spriteHeight);
+  		glUniform2f(pSP->textureSizeId, pSP->textureSize.x, pSP->textureSize.y);
     };
     if (pSP->spriteLeftTopId >= 0) {
   		glUniform2f(pSP->spriteLeftTopId, tmpsprite.left, tmpsprite.top);      

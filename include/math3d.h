@@ -132,6 +132,7 @@ MATH3D_FLOAT vec2Lenght(const vec2* pLengthOf);
 vec2* vec2Normalise(vec2 *pNormalise);
 vec2* vec2Add(vec2* pAddTo, const vec2* pAdd);
 vec2* vec2Sub(vec2* pSubFrom, const vec2* pSub);
+vec2* vec2Scale(vec2* pSet, const float pScale);
 
 // vec3 interface
 vec3* vec3Set(vec3* pSet, MATH3D_FLOAT pX, MATH3D_FLOAT pY, MATH3D_FLOAT pZ);
@@ -141,6 +142,7 @@ vec3* vec3Cross(vec3* pDest, const vec3* pVecA, const vec3* pVecB);
 MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf);
 vec3* vec3Add(vec3* pAddTo, const vec3* pAdd);
 vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub);
+vec3* vec3Scale(vec3* pSet, const float pScale);
 
 // vec4 interface
 vec4* vec4Set(vec4* pSet, MATH3D_FLOAT pX, MATH3D_FLOAT pY, MATH3D_FLOAT pZ, MATH3D_FLOAT pW);
@@ -149,6 +151,7 @@ MATH3D_FLOAT vec4Dot(const vec4* pVecA, const vec4* pVecB);
 MATH3D_FLOAT vec4Lenght(const vec4* pLengthOf);
 vec4* vec4Add(vec4* pAddTo, const vec4* pAdd);
 vec4* vec4Sub(vec4* pSubFrom, const vec4* pSub);
+vec4* vec4Scale(vec4* pSet, const float pScale);
 
 vec3* vec3FromVec4(vec3* pSet, const vec4* pFrom, bool pApplyW);
 vec4* vec4FromVec3(vec4* pSet, const vec3* pFrom, MATH3D_FLOAT pW);
@@ -274,6 +277,18 @@ vec2* vec2Sub(vec2* pSubFrom, const vec2* pSub) {
   return pSubFrom;
 };
 
+// Scale a vector
+// vec2 vec;
+// vec2Set(&vec, 1.0, 2.0);
+// vec2Scale(&vec, 2.0);
+// vec is now (2.0, 4.0)
+vec2* vec2Scale(vec2* pSet, const float pScale) {
+  pSet->x *= pScale;
+  pSet->y *= pScale;
+  
+  return pSet;  
+};
+
 ////////////////////////////////////////////////////////////////////////////////////
 // vec3
 
@@ -378,6 +393,19 @@ vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub) {
   return pSubFrom;
 };
 
+// Scale a vector
+// vec3 vec;
+// vec3Set(&vec, 1.0, 2.0, 3.0);
+// vec3Scale(&vec, 2.0);
+// vec is now (2.0, 4.0, 6.0)
+vec3* vec3Scale(vec3* pSet, const float pScale) {
+  pSet->x *= pScale;
+  pSet->y *= pScale;
+  pSet->z *= pScale;
+  
+  return pSet;  
+};
+
 ////////////////////////////////////////////////////////////////////////////////////
 // vec4
 
@@ -476,6 +504,20 @@ vec4* vec4Sub(vec4* pSubFrom, const vec4* pSub) {
   pSubFrom->w -= pSub->w;
   
   return pSubFrom;
+};
+
+// Scale a vector
+// vec4 vec;
+// vec4Set(&vec, 1.0, 2.0, 3.0, 4.0);
+// vec4Scale(&vec, 2.0);
+// vec is now (2.0, 4.0, 6.0, 8.0)
+vec4* vec4Scale(vec4* pSet, const float pScale) {
+  pSet->x *= pScale;
+  pSet->y *= pScale;
+  pSet->z *= pScale;
+  pSet->w *= pScale;
+  
+  return pSet;  
 };
 
 // sets the xyz part of a vec4 to a vec3
