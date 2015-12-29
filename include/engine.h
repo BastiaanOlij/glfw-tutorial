@@ -81,6 +81,7 @@ typedef bool(* EngineKeyPressed)(int);
 
 void engineSetErrorCallback(EngineError pCallback);
 void engineSetKeyPressedCallback(EngineKeyPressed pCallback);
+void engineInit();
 void engineLoad();
 void engineUnload();
 void engineUpdate(double pSecondsPassed);

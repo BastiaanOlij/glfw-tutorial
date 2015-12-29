@@ -20,30 +20,30 @@ EngineError engineErrCallback = NULL;
 EngineKeyPressed engineKeyPressedCallback = NULL;
 
 // shader program and buffers
-newtileshader(ts);
-newspritesheet(sp);
+tileshader  ts;
+spritesheet sp;
 
-GLuint VAO = 0;
-GLuint textures[TEXT_COUNT] = { 0, 0, 0 };
+GLuint      VAO = 0;
+GLuint      textures[TEXT_COUNT] = { 0, 0, 0 };
 
 // and some globals for our fonts
 FONScontext *	fs = NULL;
-int font = FONS_INVALID;
-float lineHeight = 0.0f;
+int         font = FONS_INVALID;
+float       lineHeight = 0.0f;
 
 // our view matrix
-mat4  view;
+mat4        view;
 
 // and some runtime variables.
-double frames = 0.0f;
-double fps = 0.0f;
-double lastframes = 0.0f;
-double lastsecs = 0.0f;
+double      frames = 0.0f;
+double      fps = 0.0f;
+double      lastframes = 0.0f;
+double      lastsecs = 0.0f;
 
-double    lastAnimSecs = 0.0;
-GLint     currentAnim = CR_ANIM_LOOK_LEFT;
-GLint     currentSprite = 0;
-vec3      currentPos;
+double      lastAnimSecs = 0.0;
+GLint       currentAnim = CR_ANIM_LOOK_LEFT;
+GLint       currentSprite = 0;
+vec3        currentPos;
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -233,6 +233,12 @@ void unload_objects() {
 
 //////////////////////////////////////////////////////////
 // Main engine
+
+// engineInit initializes any variables, kinda like our constructor
+void engineInit() {
+  tsInit(&ts);
+  spInit(&sp);
+};
 
 // engineLoad loads any data that we need to load before we can start outputting stuff
 void engineLoad() {

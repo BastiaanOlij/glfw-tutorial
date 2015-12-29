@@ -52,6 +52,8 @@ typedef struct spritesheet {
   GLfloat  spriteScale;           // scale to use for sprites
 } spritesheet;
 
+void spInit(spritesheet* pSP);
+
 typedef void(* SPError)(int, const char*, ...);
 void spSetErrorCallback(SPError pCallback);
 
@@ -64,13 +66,30 @@ GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth,
 void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites);
 void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip);
 
-#define newspritesheet(sp) spritesheet sp = { NO_SHADER, -1, -1, 0, -1, { 0.0, 0.0 }, -1, -1, 0, 0, 0, 3.0 }
-
 #ifdef __cplusplus
 };
 #endif
 
 #ifdef SPRITE_IMPLEMENTATION
+
+//////////////////////////////////////////////////////////
+// initialisation
+
+// init, initialises base values for our spritesheet, kinda like our constructor
+void spInit(spritesheet* pSP) {
+  pSP->program          = NO_SHADER;
+  pSP->mvpId            = -1;
+  pSP->textureId        = -1;
+  pSP->texture          = 0;
+  pSP->textureSizeId    = -1;
+  vec2Set(&(pSP->textureSize), 0.0, 0.0);
+  pSP->spriteSizeId     = -1;
+  pSP->spriteLeftTopId  = -1;
+  pSP->spriteCount      = 0;
+  pSP->maxSpriteCount   = 0;
+  pSP->sprites          = 0;
+  pSP->spriteScale      = 1.0;
+};
 
 //////////////////////////////////////////////////////////
 // error handling

@@ -111,6 +111,7 @@ int main(void) {
     glfwSetKeyCallback(window, key_callback);
     
     // load and initialize our engine
+    engineInit();
     engineSetErrorCallback(error_callback);
     engineSetKeyPressedCallback(keypressed_callback);
     engineLoad();

@@ -40,6 +40,8 @@ typedef struct tileshader {
   GLfloat textureSize;
 } tileshader;
 
+void tsInit(tileshader* pTS);
+
 typedef void(* TSError)(int, const char*, ...);
 void tsSetErrorCallback(TSError pCallback);
 
@@ -50,13 +52,31 @@ void tsLoad(tileshader* pTS);
 void tsUnload(tileshader* pTS);
 void tsRender(tileshader* pTS, const mat4* pProjection, const mat4* pView);
 
-#define newtileshader(ts) tileshader ts = { NO_SHADER, -1, -1, -1, 0, { 0.0, 0.0 }, 100.0, -1, 0, -1, 8, -1, 256.0 }
-
 #ifdef __cplusplus
 };
 #endif
 
 #ifdef TILEMAP_IMPLEMENTATION
+
+//////////////////////////////////////////////////////////
+// initialisation
+
+// init, initialises base values for our tilesheet, kinda like our constructor
+void tsInit(tileshader* pTS) {
+  pTS->program          = NO_SHADER;
+  pTS->mvpId            = -1;
+  pTS->mapdataId        = -1;
+  pTS->mapSizeId        = -1;
+  pTS->mapdataTexture   = 0;
+  vec2Set(&(pTS->mapSize), 0.0, 0.0);
+  pTS->mapScale         = 100.0;
+  pTS->tileId           = -1;
+  pTS->tileTexture      = 0;
+  pTS->tilesPerSideId   = -1;
+  pTS->tilesPerSide     = 8;
+  pTS->textureSizeId    = -1;
+  pTS->textureSize      = 256.0;
+};
 
 //////////////////////////////////////////////////////////
 // error handling
