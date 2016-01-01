@@ -10,26 +10,22 @@
 #include "engine.h"
 
 //////////////////////////////////////////////////////////
-// Include our game data
-#include "gamedata.h"
-
-//////////////////////////////////////////////////////////
 // For now we just some global state to make life easy
 
 EngineError engineErrCallback = NULL;
 EngineKeyPressed engineKeyPressedCallback = NULL;
 
-// shader program and buffers
-tileshader  ts;
-spritesheet sp;
-
 GLuint      VAO = 0;
-GLuint      textures[TEXT_COUNT] = { 0, 0, 0 };
+GLuint      VBOs[2] = { 0, 0 };
 
 // and some globals for our fonts
 FONScontext *	fs = NULL;
 int         font = FONS_INVALID;
 float       lineHeight = 0.0f;
+
+// shader
+GLuint      program;
+GLint       mvpId;
 
 // our view matrix
 mat4        view;
@@ -39,11 +35,7 @@ double      frames = 0.0f;
 double      fps = 0.0f;
 double      lastframes = 0.0f;
 double      lastsecs = 0.0f;
-
-double      lastAnimSecs = 0.0;
-GLint       currentAnim = CR_ANIM_LOOK_LEFT;
-GLint       currentSprite = 0;
-vec3        currentPos;
+double      rotate = 0.0;
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -55,8 +47,8 @@ void engineSetErrorCallback(EngineError pCallback) {
   
   // Set our callbacks in our support libraries
   shaderSetErrorCallback(engineErrCallback);
-  tsSetErrorCallback(engineErrCallback);
-  spSetErrorCallback(engineErrCallback);
+//  tsSetErrorCallback(engineErrCallback);
+//  spSetErrorCallback(engineErrCallback);
 };
 
 //////////////////////////////////////////////////////////
@@ -138,96 +130,128 @@ char* loadFile(const char* pFileName) {
 };
 
 void load_shaders() {
-  // load our tilemap shader
-  tsSetLoadFileFunc(loadFile);
-  tsLoad(&ts);
-  
-  // load our spritesheet shader
-  spSetLoadFileFunc(loadFile);
-  spLoad(&sp);
+  char* shaderText = NULL;
+  GLuint vertexShader = NO_SHADER, fragmentShader = NO_SHADER;
+
+  shaderText = loadFile("simple.vs");
+  if (shaderText != NULL) {
+    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
+    free(shaderText);
+    
+    if (vertexShader != NO_SHADER) {
+      shaderText = loadFile("simple.fs");
+
+      if (shaderText != NULL) {
+        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
+        free(shaderText);
+        
+        if (fragmentShader != NO_SHADER) {
+          program = shaderLink(2, vertexShader, fragmentShader);
+          mvpId = glGetUniformLocation(program, "mvp");
+          if (mvpId < 0) {
+            engineErrCallback(mvpId, "Unknown uniform mvp");
+          };
+        };
+                
+        // no longer need this...
+        glDeleteShader(fragmentShader);
+      };
+      
+      // no longer need this...
+      glDeleteShader(vertexShader);
+    };
+  };
 };
 
 void unload_shaders() {
-  tsUnload(&ts);
-  spUnload(&sp);
+  glDeleteProgram(program);
 };
 
 //////////////////////////////////////////////////////////
 // Objects
 
-void setTexture(GLuint pTexture, GLint pFilter, GLint pWrap) {
-  glBindTexture(GL_TEXTURE_2D, pTexture);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pWrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);  
+//  We're building a cube:
+//
+//      5------------4
+//     /|           /|
+//    / |          / |
+//   0------------1  |
+//   |  |         |  |
+//   |  |         |  |
+//   |  6---------|--7
+//   | /          | /
+//   |/           |/
+//   3------------2
+
+// we define a structure for our vertices, for now we define the location and color of each of our vertices on our cube
+typedef struct vertex {
+  vec3    V;          // position of our vertice (XYZ)
+  vec3    C;          // color of our vertice (RGB)
+} vertex;
+
+vertex vertices[] = {
+  -0.5,  0.5,  0.5, 1.0, 0.0, 0.0,          // vertex 0
+   0.5,  0.5,  0.5, 0.0, 1.0, 0.0,          // vertex 1
+   0.5, -0.5,  0.5, 0.0, 0.0, 1.0,          // vertex 2
+  -0.5, -0.5,  0.5, 1.0, 0.0, 1.0,          // vertex 3
+   0.5,  0.5, -0.5, 1.0, 1.0, 0.0,          // vertex 4
+  -0.5,  0.5, -0.5, 0.0, 1.0, 1.0,          // vertex 5
+  -0.5, -0.5, -0.5, 1.0, 1.0, 1.0,          // vertex 6
+   0.5, -0.5, -0.5, 0.0, 0.0, 0.0,          // vertex 7
+};
+
+// and now define our indices that make up our triangles
+GLint indices[] = {
+  0, 1, 2,
+  0, 2, 3,
+
+  1, 4, 7,
+  1, 7, 2,
+
+  5, 4, 1,
+  5, 1, 0,
+
+  3, 2, 7,
+  3, 7, 6, 
+  
+  5, 0, 3,
+  5, 3, 6, 
+  
+  4, 5, 6, 
+  4, 6, 7,  
 };
 
 void load_objects() {
-	int x, y, comp;
-  unsigned char * data;
-
-  // we start with creating our vertex array object, even though we're not doing much with it, OpenGL still requires one for state
+  // we start with creating our vertex array object
   glGenVertexArrays(1, &VAO);
+  glGenBuffers(2, VBOs);
   
-  // Need to create our texture objects
-  glGenTextures(TEXT_COUNT, textures);
+  // select our VAO
+  glBindVertexArray(VAO);
   
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  // now load in our map texture into textures[TEXT_MAPDATA]
-	setTexture(textures[TEXT_MAPDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, 40, 20, 0, GL_RED, GL_UNSIGNED_BYTE, mapdata);
-  ts.mapdataTexture = textures[TEXT_MAPDATA];
-  ts.mapSize.x = 40.0;
-  ts.mapSize.y = 20.0;
-  ts.mapScale = TILE_SCALE;
+  // now load our vertices into our first VBO
+  glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
   
-  // and we load our tiled map into textures[TEXT_TILEDATA]
-	data = stbi_load("tiles.png", &x, &y, &comp, 4);
-  if (data == 0) {
-    engineErrCallback(-1, "Couldn't load tiles.png");
-  } else {
-  	setTexture(textures[TEXT_TILEDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    ts.tileTexture = textures[TEXT_TILEDATA];
-    ts.tilesPerSide = 16;
-    ts.textureSize = x; // assume square
-		
-		stbi_image_free(data);
-  };
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  // now load in our sprite texture into textures[TEXT_SPRITEDATA]
-	data = stbi_load("conrad.png", &x, &y, &comp, 4);
-  if (data == 0) {
-    engineErrCallback(-1, "Couldn't load conrad.png");
-  } else {
-  	setTexture(textures[TEXT_SPRITEDATA], GL_LINEAR, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    sp.texture = textures[TEXT_SPRITEDATA];
-    sp.textureSize.x = x;
-    sp.textureSize.y = y;
-		
-		stbi_image_free(data);
-  };
-
-  // normally we would load this from a file or another source
-  // copying from a memory buffer like this is a bit wasteful.
-  spAddSprites(&sp, conradSpriteSheet, sizeof(conradSpriteSheet) / sizeof(sprite));
-
-  // and lets be nice and unbind...
-	glBindTexture(GL_TEXTURE_2D, 0);
+  // now we need to configure our attributes, we use one for our position and one for our color attribute 
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
+  
+  // now we load our indices into our second VBO
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBOs[1]);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), &indices, GL_STATIC_DRAW);
+  
+  // at this point in time our two buffers are bound to our vertex array so any time we bind our vertex array
+  // our two buffers are bound aswell
 
   // and clear our selected vertex array object
   glBindVertexArray(0);
 };
 
 void unload_objects() {
-  sp.texture = 0;
-  ts.tileTexture = 0;
-  ts.mapdataTexture = 0;
-  
-  glDeleteTextures(TEXT_COUNT, textures);
+  glDeleteBuffers(2, VBOs);
   glDeleteVertexArrays(1, &VAO);
 };
 
@@ -236,8 +260,7 @@ void unload_objects() {
 
 // engineInit initializes any variables, kinda like our constructor
 void engineInit() {
-  tsInit(&ts);
-  spInit(&sp);
+
 };
 
 // engineLoad loads any data that we need to load before we can start outputting stuff
@@ -253,12 +276,8 @@ void engineLoad() {
   // load our objects
   load_objects();
   
-  // init our view matrix
+  // init our view matrix, camera looking straight ahead
   mat4Identity(&view);  
-  mat4Translate(&view, vec3Set(&tmpvector, 10 * TILE_SCALE, -2.0 * TILE_SCALE, 0.0));
-  
-  // and init our character position (within our tilemap)
-  vec3Set(&currentPos, -18.0, 9.0, 0.0);
 };
 
 // engineUnload unloads and frees up any data associated with our engine
@@ -269,168 +288,13 @@ void engineUnload() {
   unload_font();
 };
 
-// areKeysPressed: Returns true if all keys in our keys array are currently pressed
-bool areKeysPressed(int *keys) {
-  if (keys != NULL) {
-    while (*keys != 0) {
-      if (!engineKeyPressedCallback(*keys)) {
-        return false;
-      };
-      
-      keys++;
-    };
-  };
-  return true;
-};
-
-// isTileType: Returns true if the tile at our x, y position appears in our tiles array
-bool isTileType(GLint x, GLint y, unsigned char *tiles) {
-  if (x < 0 | x >= 40) {
-    return false;
-  } else if (y < 0 | y >= 20) {
-    return false;
-  };
-  
-  unsigned char tile = interactiondata[y * 40 + x];
-    
-  while (*tiles != 0) {
-    if (*tiles == tile) {
-      return true;
-    };
-    
-    tiles++;
-  };
-  
-  return false;
-};
-
-// canMoveThere: Returns true if atleast one move_map entry in our array matches
-bool canMoveThere(move_map *moveMap) {
-  GLint  x, y;
-  
-  if (moveMap == NULL) {
-    return true;
-  };
-  
-  x = (GLint) currentPos.x + 20;
-  y = (GLint) currentPos.y + 10;
-
-  while (moveMap->tiles != NULL) {    
-    if (!isTileType(x + moveMap->relX, y + moveMap->relY, moveMap->tiles)) {
-      return false;
-    };
-    
-    moveMap++;
-  };
-  
-  return true;
-};
-
-// obtain our next animation type
-GLint getNextAnim(action_map *followUpActions) {
-  GLint nextAnim = -1;
-
-  if (followUpActions != NULL) {
-    // check our action map
-    while ((nextAnim == -1) & (followUpActions->startAnimation != CR_END)) {
-      // assume this will be our next animation until proven differently
-      nextAnim = followUpActions->startAnimation;
-              
-      // check if we're missing any keys
-      if (!areKeysPressed(followUpActions->keys)) {
-        // keep looking...
-        nextAnim = -1;
-        followUpActions++; // check next
-      } else if (!canMoveThere(followUpActions->moveMap)) {
-        // keep looking...
-        nextAnim = -1;
-        followUpActions++; // check next
-      };
-    };    
-  };  
-  
-  return nextAnim;
-};
-
 // engineUpdate is called to handle any updates of our data
 // pSecondsPassed is the number of seconds passed since our application was started.
 void engineUpdate(double pSecondsPassed) {
-  double delta;
-  bool   animReset = false;
+  float delta;
   
-  // update our animation
-  delta = (pSecondsPassed - lastAnimSecs);
-  if (delta > (1.0 / 12.0)) { // roughly aim for 12 frames per second
-    lastAnimSecs = pSecondsPassed;
-    
-    if (conradAnim[currentAnim].lastSprite < conradAnim[currentAnim].firstSprite) {
-      // move backwards one sprite
-      currentSprite--;
-      if (currentSprite < conradAnim[currentAnim].lastSprite) {
-        currentSprite = conradAnim[currentAnim].firstSprite;
-        animReset = true;
-      };
-    } else {      
-      // move forewards one sprite
-      currentSprite++;
-      if (currentSprite > conradAnim[currentAnim].lastSprite) {
-        currentSprite = conradAnim[currentAnim].firstSprite;
-        animReset = true;
-      };
-    };
-    
-    // if our animation was reset we have a chance to change the animation
-    if (animReset) {
-      int nextAnim = -1;
-      
-      // if our current animation was played forward, we add our movement once finished
-      if (conradAnim[currentAnim].firstSprite<=conradAnim[currentAnim].lastSprite) {
-        currentPos.x += conradAnim[currentAnim].moveX * SPRITE_SCALE;
-        currentPos.y += conradAnim[currentAnim].moveY * SPRITE_SCALE;        
-      };
-      
-      nextAnim = getNextAnim(conradAnim[currentAnim].followUpActions);
-
-      if (nextAnim == -1) {
-        engineErrCallback(0, "Missing animation from %i", currentAnim);
-      };
-      
-      // if -1  We're missing something
-      currentAnim = nextAnim == -1 ? 0 : nextAnim;
-      currentSprite = conradAnim[currentAnim].firstSprite;
-      
-      // if our new animation is going to be played in reverse, we add our movement at the start
-      if (conradAnim[currentAnim].firstSprite>conradAnim[currentAnim].lastSprite) {
-        currentPos.x += conradAnim[currentAnim].moveX * SPRITE_SCALE;
-        currentPos.y += conradAnim[currentAnim].moveY * SPRITE_SCALE;        
-      };
-    };
-  };
-  
-  // update our view
-  if ((view.m[3][0] / TILE_SCALE) + currentPos.x > 5.0f) {
-    view.m[3][0] -= TILE_SCALE * 10.0;
-    if (view.m[3][0] < TILE_SCALE * -10.0) {
-      view.m[3][0] = TILE_SCALE * -10.0;
-    };
-  } else if ((view.m[3][0] / TILE_SCALE) + currentPos.x < -5.0f) {
-    view.m[3][0] += TILE_SCALE * 10.0;
-    if (view.m[3][0] > TILE_SCALE * 10.0) {
-      view.m[3][0] = TILE_SCALE * 10.0;
-    };
-  };
-
-  if ((view.m[3][1] / TILE_SCALE) + currentPos.y > 2.5f) {
-    view.m[3][1] -= TILE_SCALE * 5.0;
-    if (view.m[3][1] < TILE_SCALE * -2.0) {
-      view.m[3][1] = TILE_SCALE * -2.0;
-    };
-  } else if ((view.m[3][1] / TILE_SCALE) + currentPos.y < -2.5f) {
-    view.m[3][1] += TILE_SCALE * 5.0;
-    if (view.m[3][1] > TILE_SCALE * 2.0) {
-      view.m[3][1] = TILE_SCALE * 2.0;
-    };
-  };
+  // rotate for display
+  rotate = pSecondsPassed * 20.0;
   
   // update our frame counter
   frames += 1.0f;
@@ -446,41 +310,42 @@ void engineUpdate(double pSecondsPassed) {
 
 // engineRender is called to render our stuff
 void engineRender(int pWidth, int pHeight) {;
-  mat4 mvp, invmvp, projection, modelview;
+  mat4 projection, mvp;
   vec3 tmpvector;
   float ratio, left, top;
-  float virtualScreenHeight = 250.0;
-  int a, b, i;
   
   // select our default VAO so we can render stuff that doesn't need our VAO
   glBindVertexArray(VAO);
   
-  // enable our depth test, with this disabled our second triangle paints over our first..
-  glEnable(GL_DEPTH_TEST);
+  // enable and configure our backface culling
+	glEnable(GL_CULL_FACE); // enable culling
+  glFrontFace(GL_CW);     // clockwise
+	glCullFace(GL_BACK);    // backface culling
+  // enable our depth test
   glDisable(GL_BLEND);
 
   // set our model view projection matrix
-  ratio = pWidth / (float) pHeight;
+  ratio = (float) pWidth / (float) pHeight;
 
-  // init our projection matrix, note that we've got positive Y pointing down
+  // init our projection matrix, we use a 3D projection matrix now
   mat4Identity(&projection);
-  mat4Ortho(&projection, -ratio * virtualScreenHeight, ratio * virtualScreenHeight, virtualScreenHeight, -virtualScreenHeight, 1.0f, -1.0f);
-    
-  // draw our tiled background
-  tsRender(&ts, &projection, &view);
-  
-  // Convert our tilemap position of our character to our real location
-  vec3Copy(&tmpvector, &currentPos);
-  vec3Scale(&tmpvector, TILE_SCALE);
-  tmpvector.x += SPRITE_X_CENTER;
-  tmpvector.y += SPRITE_Y_CENTER;
+  mat4Projection(&projection, 45.0, ratio, 1.0, 10000.0);
 
-  // draw our character
-  mat4Copy(&modelview, &view);
-  mat4Translate(&modelview, &tmpvector);
-  sp.spriteScale = SPRITE_SCALE;
-  spRender(&sp, &projection, &modelview, currentSprite, conradAnim[currentAnim].flip, false);
-  
+  // set our model view projection matrix
+  mat4Copy(&mvp, &projection);
+  mat4Multiply(&mvp, &view);
+  mat4Translate(&mvp, vec3Set(&tmpvector, 0.0, 0.0, -30.0));   // move it back so we can see it
+  mat4Rotate(&mvp, rotate, vec3Set(&tmpvector, 10.0, 5.0, 15.0)); // rotate our cube
+  mat4Scale(&mvp, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
+
+  // select our shader
+  glUseProgram(program);
+  glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
+
+  // now render our cube
+  glBindVertexArray(VAO);
+  glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);	
+    
   // unset stuff
   glBindVertexArray(0);
   glUseProgram(0);
@@ -490,26 +355,23 @@ void engineRender(int pWidth, int pHeight) {;
     
   // change our state a little
   glDisable(GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glBlendEquation(GL_FUNC_ADD);
 	glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);  
   
   // now render our FPS
 	if ((fs != NULL) && (font != FONS_INVALID)) {
+    float virtualScreenHeight = 250.0;
     char info[256];
-    float  posX, posY, viewX, viewY;
     
-    posX = currentPos.x;
-    posY = currentPos.y;
-    
-    viewX = view.m[3][0] / TILE_SCALE;
-    viewY = view.m[3][1] / TILE_SCALE;
-    
-    // we can use our same projection matrix
+    // We want a orthographic projection for our frame counter
+    mat4Identity(&projection);
+    mat4Ortho(&projection, -ratio * virtualScreenHeight, ratio * virtualScreenHeight, virtualScreenHeight, -virtualScreenHeight, 1.0f, -1.0f);
     gl3fonsProjection(fs, (GLfloat *)projection.m);
 
     // what text shall we draw?
-    sprintf(info,"FPS: %0.1f, anim = %i, index = %i, tile = %.2f, %.2f, view = %.2f, %.2f", fps, currentAnim, currentSprite, posX, posY, viewX, viewY);
+    sprintf(info,"FPS: %0.1f", fps);
         
     // and draw some text
     fonsDrawText(fs, -ratio * 250.0f, 230.0f, info, NULL);
@@ -519,5 +381,3 @@ void engineRender(int pWidth, int pHeight) {;
 void engineKeyPressed(int pKey) {
 //  pushKey(pKey);
 };
-
-

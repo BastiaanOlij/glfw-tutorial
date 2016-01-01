@@ -129,7 +129,7 @@ int main(void) {
       
       // set and clear our viewport
       glViewport(0, 0, frameWidth, frameHeight);
-      glClearColor(0.3, 0.6, 0.75, 1.0);
+      glClearColor(0.1, 0.1, 0.1, 1.0);
       glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);      
       
       // and render

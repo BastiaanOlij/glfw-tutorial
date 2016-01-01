@@ -32,49 +32,12 @@
 #include "fontstash/fontstash.h"
 #include "fontstash/gl3fontstash.h"
 #include "stb/stb_image.h"
-#include "tilemap.h"
-#include "spritesheet.h"
+// #include "tilemap.h"
+// #include "spritesheet.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define SPRITE_SCALE 1.0f
-#define SPRITE_X_CENTER 16.0f
-#define SPRITE_Y_CENTER 0.0f
-#define TILE_SCALE 32.0f
-
-// enumerations
-enum texture_types {
-  TEXT_MAPDATA,
-  TEXT_TILEDATA,
-  TEXT_SPRITEDATA,
-  TEXT_COUNT
-};
-
-// structure to check value of relative tile
-typedef struct move_map {
-  GLint     relX;                       // check horizontal tiles
-  GLint     relY;                       // check vertical tiles
-  unsigned char *tiles;                 // tile types to check
-} move_map;
-
-// structure to control our follow up actions
-typedef struct action_map {
-  GLint     startAnimation;             // start this animation
-  int       *keys;                      // if these keys are pressed (zero terminates)
-  move_map  *moveMap;                   // our move map checks
-} action_map;
-  
-// structure to record information about an animation
-typedef struct animation {
-  GLint         firstSprite;            // first sprite of animation
-  GLint         lastSprite;             // last sprite of animation
-  bool          flip;                   // flip sprite horizontally
-  GLfloat       moveX;                  // add this to our X after anim is finished
-  GLfloat       moveY;                  // add this to our Y after anim is finished
-  action_map    *followUpActions;       // follow up actions
-} animation;
 
 typedef void(* EngineError)(int, const char*, ...);
 typedef bool(* EngineKeyPressed)(int);
