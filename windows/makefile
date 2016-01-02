@@ -14,6 +14,7 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\$(APPNAME) \
   $(CONTENTSDIR)\glew32.dll \
   $(CONTENTSDIR)\DroidSerif-Regular.ttf \
+  $(CONTENTSDIR)\boxtexture.jpg \
   $(CONTENTSDIR)\simple.fs \
   $(CONTENTSDIR)\simple.vs
 	

@@ -17,6 +17,7 @@ EngineKeyPressed engineKeyPressedCallback = NULL;
 
 GLuint      VAO = 0;
 GLuint      VBOs[2] = { 0, 0 };
+GLuint      textures[TEXT_COUNT] = { 0 };
 
 // and some globals for our fonts
 FONScontext *	fs = NULL;
@@ -26,6 +27,7 @@ float       lineHeight = 0.0f;
 // shader
 GLuint      program;
 GLint       mvpId;
+GLint       boxTextureId;
 
 // our view matrix
 mat4        view;
@@ -151,6 +153,10 @@ void load_shaders() {
           if (mvpId < 0) {
             engineErrCallback(mvpId, "Unknown uniform mvp");
           };
+          boxTextureId = glGetUniformLocation(program, "boxtexture");
+          if (boxTextureId < 0) {
+            engineErrCallback(boxTextureId, "Unknown uniform boxtexture");
+          };
         };
                 
         // no longer need this...
@@ -186,25 +192,60 @@ void unload_shaders() {
 // we define a structure for our vertices, for now we define the location and color of each of our vertices on our cube
 typedef struct vertex {
   vec3    V;          // position of our vertice (XYZ)
-  vec3    C;          // color of our vertice (RGB)
+  vec2    T;          // texture coordinates (XY)
 } vertex;
 
 vertex vertices[] = {
-  -0.5,  0.5,  0.5, 1.0, 0.0, 0.0,          // vertex 0
-   0.5,  0.5,  0.5, 0.0, 1.0, 0.0,          // vertex 1
-   0.5, -0.5,  0.5, 0.0, 0.0, 1.0,          // vertex 2
-  -0.5, -0.5,  0.5, 1.0, 0.0, 1.0,          // vertex 3
-   0.5,  0.5, -0.5, 1.0, 1.0, 0.0,          // vertex 4
-  -0.5,  0.5, -0.5, 0.0, 1.0, 1.0,          // vertex 5
-  -0.5, -0.5, -0.5, 1.0, 1.0, 1.0,          // vertex 6
-   0.5, -0.5, -0.5, 0.0, 0.0, 0.0,          // vertex 7
+  // front
+  -0.5,  0.5,  0.5, 1.0 / 3.0,       0.0,          // vertex 0
+   0.5,  0.5,  0.5, 2.0 / 3.0,       0.0,          // vertex 1
+   0.5, -0.5,  0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 2
+  -0.5, -0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 3
+
+  // back
+   0.5,  0.5, -0.5, 1.0 / 3.0, 1.0 / 2.0,          // vertex 4
+  -0.5,  0.5, -0.5, 2.0 / 3.0, 1.0 / 2.0,          // vertex 5
+  -0.5, -0.5, -0.5, 2.0 / 3.0, 3.0 / 4.0,          // vertex 6
+   0.5, -0.5, -0.5, 1.0 / 3.0, 3.0 / 4.0,          // vertex 7
+   
+   // these are added for properly texturing our sides, top and bottom
+   // left
+  -0.5,  0.5, -0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 8  (5)
+  -0.5,  0.5,  0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 9  (0)
+  -0.5, -0.5,  0.5, 2.0 / 3.0, 2.0 / 4.0,          // vertex 10 (3)
+  -0.5, -0.5, -0.5, 1.0 / 3.0, 2.0 / 4.0,          // vertex 11 (6)
+
+   // right
+   0.5,  0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 12 (1)
+   0.5,  0.5, -0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 13 (4)
+   0.5, -0.5, -0.5, 2.0 / 3.0, 2.0 / 4.0,          // vertex 14 (7)
+   0.5, -0.5,  0.5, 1.0 / 3.0, 2.0 / 4.0,          // vertex 15 (2)
+
+   // top
+   -0.5,  0.5, -0.5,       0.0,       0.0,          // vertex 16 (5)
+    0.5,  0.5, -0.5, 1.0 / 3.0,       0.0,          // vertex 17 (4)
+    0.5,  0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 18 (1)
+   -0.5,  0.5,  0.5,       0.0, 1.0 / 4.0,          // vertex 19 (0)
+
+   // bottom
+   -0.5, -0.5,  0.5, 2.0 / 3.0,       0.0,          // vertex 20 (3)
+    0.5, -0.5,  0.5, 3.0 / 3.0,       0.0,          // vertex 21 (2)
+    0.5, -0.5, -0.5, 3.0 / 3.0, 1.0 / 4.0,          // vertex 22 (7)
+   -0.5, -0.5, -0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 23 (6)
+
 };
 
 // and now define our indices that make up our triangles
 GLint indices[] = {
-  0, 1, 2,
-  0, 2, 3,
+  // front
+   0,  1,  2,
+   0,  2,  3,
 
+  // back
+   4,  5,  6, 
+   4,  6,  7,  
+
+  /* reusing our first 8 vertices for rendering sides, top and bottom as per our previous example
   1, 4, 7,
   1, 7, 2,
 
@@ -216,12 +257,40 @@ GLint indices[] = {
   
   5, 0, 3,
   5, 3, 6, 
+  */
   
-  4, 5, 6, 
-  4, 6, 7,  
+  // properly texturing our sides, top and bottom
+  // left
+   8,  9, 10,
+   8, 10, 11,
+  
+  // right
+  12, 13, 14,
+  12, 14, 15,
+  
+  // top
+  16, 17, 18,
+  16, 18, 19,
+  
+  // bottom
+  20, 21, 22,
+  20, 22, 23,
+};
+
+#define NUM_TRIANGLES (sizeof(indices) / sizeof(GLint))
+
+void setTexture(GLuint pTexture, GLint pFilter, GLint pWrap) {
+  glBindTexture(GL_TEXTURE_2D, pTexture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pWrap);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);  
 };
 
 void load_objects() {
+	int x, y, comp;
+  unsigned char * data;
+  
   // we start with creating our vertex array object
   glGenVertexArrays(1, &VAO);
   glGenBuffers(2, VBOs);
@@ -237,7 +306,7 @@ void load_objects() {
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
   
   // now we load our indices into our second VBO
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBOs[1]);
@@ -248,9 +317,24 @@ void load_objects() {
 
   // and clear our selected vertex array object
   glBindVertexArray(0);
+  
+  // Now lets load our textures, note that this does not relate to our VAO state
+  glGenTextures(TEXT_COUNT, textures);
+  
+  // and we load our box texture into textures[TEXT_BOXTEXTURE]
+	data = stbi_load("boxtexture.jpg", &x, &y, &comp, 4);
+  if (data == 0) {
+    engineErrCallback(-1, "Couldn't load boxtexture.jpg");
+  } else {
+  	setTexture(textures[TEXT_BOXTEXTURE], GL_LINEAR, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		
+		stbi_image_free(data);
+  };
 };
 
 void unload_objects() {
+  glDeleteTextures(TEXT_COUNT, textures);
   glDeleteBuffers(2, VBOs);
   glDeleteVertexArrays(1, &VAO);
 };
@@ -335,16 +419,19 @@ void engineRender(int pWidth, int pHeight) {;
   mat4Copy(&mvp, &projection);
   mat4Multiply(&mvp, &view);
   mat4Translate(&mvp, vec3Set(&tmpvector, 0.0, 0.0, -30.0));   // move it back so we can see it
-  mat4Rotate(&mvp, rotate, vec3Set(&tmpvector, 10.0, 5.0, 15.0)); // rotate our cube
+  mat4Rotate(&mvp, rotate, vec3Set(&tmpvector, 1.5, 1.0, 0.5)); // rotate our cube
   mat4Scale(&mvp, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
 
   // select our shader
   glUseProgram(program);
   glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, textures[TEXT_BOXTEXTURE]);
+  glUniform1i(boxTextureId, 0);      
 
   // now render our cube
   glBindVertexArray(VAO);
-  glDrawElements(GL_TRIANGLES, 12 * 3, GL_UNSIGNED_INT, 0);	
+  glDrawElements(GL_TRIANGLES, NUM_TRIANGLES, GL_UNSIGNED_INT, 0);	
     
   // unset stuff
   glBindVertexArray(0);

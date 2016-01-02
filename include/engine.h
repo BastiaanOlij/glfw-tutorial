@@ -35,6 +35,12 @@
 // #include "tilemap.h"
 // #include "spritesheet.h"
 
+// enumerations
+enum texture_types {
+  TEXT_BOXTEXTURE,
+  TEXT_COUNT
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif

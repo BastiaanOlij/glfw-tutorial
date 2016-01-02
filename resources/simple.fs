@@ -1,8 +1,13 @@
 #version 330
 
-in vec3 color;
+uniform sampler2D boxtexture;
+
+in vec2 coords;
 out vec4 fragcolor;
 
 void main() {
-  fragcolor = vec4(color, 1.0);  
+  fragcolor = texture(boxtexture, coords);  
+  if (fragcolor.a < 0.5) {
+    discard;
+  } 
 }
