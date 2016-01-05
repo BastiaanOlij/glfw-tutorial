@@ -11,7 +11,8 @@
  *
  * Note that OpenGL headers need to be included before 
  * this file is included as it uses several of its 
- * functions.
+ * functions. It also requires math3d.h to be included 
+ * before hand
  *
  * This library does not contain any logic to load
  * shaders from disk.
@@ -39,6 +40,18 @@ enum shaderErrors {
   SHADER_ERR_NOLINK = -3
 };
 
+// typedef to obtain standard information, note that not all ids need to be present
+typedef struct shaderStdInfo {
+  GLuint  program;
+  GLint   projectionMatrixId;       // our projection matrix
+  GLint   viewMatrixId;             // our view matrix
+  GLint   modelMatrixId;            // our model matrix
+  GLint   modelViewMatrixId;        // our model view matrix
+  GLint   modelViewInverseId;       // inverse of our model view matrix
+  GLint   normalMatrixId;           // matrix to apply to our normals
+  GLint   mvpId;                    // our model view projection matrix
+} shaderStdInfo;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,6 +61,8 @@ typedef void(* ShaderError)(int, const char*, ...);
 void shaderSetErrorCallback(ShaderError pCallback);
 GLuint shaderCompile(GLenum pShaderType, const GLchar* pShaderText);
 GLuint shaderLink(GLuint pNumShaders, ...);
+shaderStdInfo shaderGetStdInfo(GLuint pProgram);
+void shaderSelectProgram(shaderStdInfo pInfo, mat4 * pProjection, mat4 * pView, mat4 * pModel);
   
 #ifdef __cplusplus
 };
@@ -218,6 +233,96 @@ GLuint shaderLink(GLuint pNumShaders, ...) {
   };
   
   return program;
+};
+
+shaderStdInfo shaderGetStdInfo(GLuint pProgram) {
+  shaderStdInfo info;
+  
+  info.program = pProgram;
+
+  info.projectionMatrixId = glGetUniformLocation(info.program, "projection");
+  if (info.projectionMatrixId < 0) {
+    shaderErrCallback(info.projectionMatrixId, "Unknown uniform projection");  // just log it, may not be a problem
+  };
+
+  info.viewMatrixId = glGetUniformLocation(info.program, "view");
+  if (info.viewMatrixId < 0) {
+    shaderErrCallback(info.viewMatrixId, "Unknown uniform view");  // just log it, may not be a problem
+  };
+
+  info.modelMatrixId = glGetUniformLocation(info.program, "model");
+  if (info.modelMatrixId < 0) {
+    shaderErrCallback(info.modelMatrixId, "Unknown uniform model");  // just log it, may not be a problem
+  };
+
+  info.modelViewMatrixId = glGetUniformLocation(info.program, "modelView");
+  if (info.modelViewMatrixId < 0) {
+    shaderErrCallback(info.modelViewMatrixId, "Unknown uniform modelView");  // just log it, may not be a problem
+  };
+
+  info.modelViewInverseId = glGetUniformLocation(info.program, "modelViewInverse");
+  if (info.modelViewInverseId < 0) {
+    shaderErrCallback(info.modelViewInverseId, "Unknown uniform modelViewInverse");  // just log it, may not be a problem
+  };
+
+  info.normalMatrixId = glGetUniformLocation(info.program, "normalMatrix");
+  if (info.normalMatrixId < 0) {
+    shaderErrCallback(info.normalMatrixId, "Unknown uniform normalMatrix");  // just log it, may not be a problem
+  };
+
+  info.mvpId = glGetUniformLocation(info.program, "mvp");
+  if (info.mvpId < 0) {
+    shaderErrCallback(info.mvpId, "Unknown uniform mvp");  // just log it, may not be a problem
+  };
+  
+  return info;
+};
+
+void shaderSelectProgram(shaderStdInfo pInfo, mat4 * pProjection, mat4 * pView, mat4 * pModel) {
+  mat4  modelView, modelViewInverse, mvp;
+  mat3  normalMatrix;
+  glUseProgram(pInfo.program);
+  
+  if (pInfo.projectionMatrixId >= 0) {
+    glUniformMatrix4fv(pInfo.projectionMatrixId, 1, false, (const GLfloat *) pProjection->m);
+  };
+
+  if (pInfo.viewMatrixId >= 0) {
+    glUniformMatrix4fv(pInfo.viewMatrixId, 1, false, (const GLfloat *) pView->m);
+  };
+
+  if (pInfo.modelMatrixId >= 0) {
+    glUniformMatrix4fv(pInfo.modelMatrixId, 1, false, (const GLfloat *) pModel->m);
+  };
+  
+  mat4Copy(&modelView, pView);
+  mat4Multiply(&modelView, pModel);
+
+  if (pInfo.modelViewMatrixId >= 0) {
+    glUniformMatrix4fv(pInfo.modelViewMatrixId, 1, false, (const GLfloat *) modelView.m);
+  };
+
+  // calculate the inverse of our model-view
+  mat4Inverse(&modelViewInverse, &modelView);
+  if (pInfo.modelViewInverseId >= 0) {
+    glUniformMatrix4fv(pInfo.modelViewInverseId, 1, false, (const GLfloat *) modelViewInverse.m);
+  };
+  
+  // now transpose our model-view inverse matrix
+  mat4Transpose(&modelViewInverse);
+  // now get just the rotation part
+  mat3FromMat4(&normalMatrix, &modelViewInverse);
+  
+  if (pInfo.normalMatrixId >= 0) {
+    glUniformMatrix3fv(pInfo.normalMatrixId, 1, false, (const GLfloat *) normalMatrix.m);
+  };
+
+  mat4Copy(&mvp, pProjection);
+  mat4Multiply(&mvp, &modelView);
+  
+  if (pInfo.mvpId >= 0) {
+    glUniformMatrix4fv(pInfo.mvpId, 1, false, (const GLfloat *) mvp.m);
+  };
 };
 
 

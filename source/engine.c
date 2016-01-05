@@ -15,29 +15,30 @@
 EngineError engineErrCallback = NULL;
 EngineKeyPressed engineKeyPressedCallback = NULL;
 
-GLuint      VAO = 0;
-GLuint      VBOs[2] = { 0, 0 };
-GLuint      textures[TEXT_COUNT] = { 0 };
+GLuint        VAO = 0;
+GLuint        VBOs[2] = { 0, 0 };
+GLuint        textures[TEXT_COUNT] = { 0 };
 
 // and some globals for our fonts
-FONScontext *	fs = NULL;
-int         font = FONS_INVALID;
-float       lineHeight = 0.0f;
+FONScontext * fs = NULL;
+int           font = FONS_INVALID;
+float         lineHeight = 0.0f;
 
 // shader
-GLuint      program;
-GLint       mvpId;
-GLint       boxTextureId;
+shaderStdInfo shaderInfo;
+GLint         lightPosId;
+GLint         boxTextureId;
+vec3          sunPos = { 0.0, 10000.0, 5000.0 };
 
 // our view matrix
-mat4        view;
+mat4          view;
 
 // and some runtime variables.
-double      frames = 0.0f;
-double      fps = 0.0f;
-double      lastframes = 0.0f;
-double      lastsecs = 0.0f;
-double      rotate = 0.0;
+double        frames = 0.0f;
+double        fps = 0.0f;
+double        lastframes = 0.0f;
+double        lastsecs = 0.0f;
+double        rotate = 0.0;
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -148,12 +149,12 @@ void load_shaders() {
         free(shaderText);
         
         if (fragmentShader != NO_SHADER) {
-          program = shaderLink(2, vertexShader, fragmentShader);
-          mvpId = glGetUniformLocation(program, "mvp");
-          if (mvpId < 0) {
-            engineErrCallback(mvpId, "Unknown uniform mvp");
+          shaderInfo = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader));
+          lightPosId = glGetUniformLocation(shaderInfo.program, "lightPos");
+          if (lightPosId < 0) {
+            engineErrCallback(lightPosId, "Unknown uniform lightPos");
           };
-          boxTextureId = glGetUniformLocation(program, "boxtexture");
+          boxTextureId = glGetUniformLocation(shaderInfo.program, "boxtexture");
           if (boxTextureId < 0) {
             engineErrCallback(boxTextureId, "Unknown uniform boxtexture");
           };
@@ -170,7 +171,7 @@ void load_shaders() {
 };
 
 void unload_shaders() {
-  glDeleteProgram(program);
+  glDeleteProgram(shaderInfo.program);
 };
 
 //////////////////////////////////////////////////////////
@@ -189,50 +190,49 @@ void unload_shaders() {
 //   |/           |/
 //   3------------2
 
-// we define a structure for our vertices, for now we define the location and color of each of our vertices on our cube
+// we define a structure for our vertices
 typedef struct vertex {
   vec3    V;          // position of our vertice (XYZ)
+  vec3    N;          // normal of our vertice (XYZ)
   vec2    T;          // texture coordinates (XY)
 } vertex;
 
 vertex vertices[] = {
   // front
-  -0.5,  0.5,  0.5, 1.0 / 3.0,       0.0,          // vertex 0
-   0.5,  0.5,  0.5, 2.0 / 3.0,       0.0,          // vertex 1
-   0.5, -0.5,  0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 2
-  -0.5, -0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 3
+  -0.5,  0.5,  0.5,  0.0,  0.0,  1.0, 1.0 / 3.0,       0.0,          // vertex 0
+   0.5,  0.5,  0.5,  0.0,  0.0,  1.0, 2.0 / 3.0,       0.0,          // vertex 1
+   0.5, -0.5,  0.5,  0.0,  0.0,  1.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 2
+  -0.5, -0.5,  0.5,  0.0,  0.0,  1.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 3
 
   // back
-   0.5,  0.5, -0.5, 1.0 / 3.0, 1.0 / 2.0,          // vertex 4
-  -0.5,  0.5, -0.5, 2.0 / 3.0, 1.0 / 2.0,          // vertex 5
-  -0.5, -0.5, -0.5, 2.0 / 3.0, 3.0 / 4.0,          // vertex 6
-   0.5, -0.5, -0.5, 1.0 / 3.0, 3.0 / 4.0,          // vertex 7
+   0.5,  0.5, -0.5,  0.0,  0.0, -1.0, 1.0 / 3.0, 1.0 / 2.0,          // vertex 4
+  -0.5,  0.5, -0.5,  0.0,  0.0, -1.0, 2.0 / 3.0, 1.0 / 2.0,          // vertex 5
+  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0, 2.0 / 3.0, 3.0 / 4.0,          // vertex 6
+   0.5, -0.5, -0.5,  0.0,  0.0, -1.0, 1.0 / 3.0, 3.0 / 4.0,          // vertex 7
    
-   // these are added for properly texturing our sides, top and bottom
    // left
-  -0.5,  0.5, -0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 8  (5)
-  -0.5,  0.5,  0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 9  (0)
-  -0.5, -0.5,  0.5, 2.0 / 3.0, 2.0 / 4.0,          // vertex 10 (3)
-  -0.5, -0.5, -0.5, 1.0 / 3.0, 2.0 / 4.0,          // vertex 11 (6)
+  -0.5,  0.5, -0.5, -1.0,  0.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 8  (5)
+  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 9  (0)
+  -0.5, -0.5,  0.5, -1.0,  0.0,  0.0, 2.0 / 3.0, 2.0 / 4.0,          // vertex 10 (3)
+  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0, 1.0 / 3.0, 2.0 / 4.0,          // vertex 11 (6)
 
-   // right
-   0.5,  0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 12 (1)
-   0.5,  0.5, -0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 13 (4)
-   0.5, -0.5, -0.5, 2.0 / 3.0, 2.0 / 4.0,          // vertex 14 (7)
-   0.5, -0.5,  0.5, 1.0 / 3.0, 2.0 / 4.0,          // vertex 15 (2)
+  // right
+   0.5,  0.5,  0.5,  1.0,  0.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 12 (1)
+   0.5,  0.5, -0.5,  1.0,  0.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 13 (4)
+   0.5, -0.5, -0.5,  1.0,  0.0,  0.0, 2.0 / 3.0, 2.0 / 4.0,          // vertex 14 (7)
+   0.5, -0.5,  0.5,  1.0,  0.0,  0.0, 1.0 / 3.0, 2.0 / 4.0,          // vertex 15 (2)
 
-   // top
-   -0.5,  0.5, -0.5,       0.0,       0.0,          // vertex 16 (5)
-    0.5,  0.5, -0.5, 1.0 / 3.0,       0.0,          // vertex 17 (4)
-    0.5,  0.5,  0.5, 1.0 / 3.0, 1.0 / 4.0,          // vertex 18 (1)
-   -0.5,  0.5,  0.5,       0.0, 1.0 / 4.0,          // vertex 19 (0)
+  // top
+  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,       0.0,       0.0,          // vertex 16 (5)
+   0.5,  0.5, -0.5,  0.0,  1.0,  0.0, 1.0 / 3.0,       0.0,          // vertex 17 (4)
+   0.5,  0.5,  0.5,  0.0,  1.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 18 (1)
+  -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,       0.0, 1.0 / 4.0,          // vertex 19 (0)
 
-   // bottom
-   -0.5, -0.5,  0.5, 2.0 / 3.0,       0.0,          // vertex 20 (3)
-    0.5, -0.5,  0.5, 3.0 / 3.0,       0.0,          // vertex 21 (2)
-    0.5, -0.5, -0.5, 3.0 / 3.0, 1.0 / 4.0,          // vertex 22 (7)
-   -0.5, -0.5, -0.5, 2.0 / 3.0, 1.0 / 4.0,          // vertex 23 (6)
-
+  // bottom
+  -0.5, -0.5,  0.5,  0.0, -1.0,  0.0, 2.0 / 3.0,       0.0,          // vertex 20 (3)
+   0.5, -0.5,  0.5,  0.0, -1.0,  0.0, 3.0 / 3.0,       0.0,          // vertex 21 (2)
+   0.5, -0.5, -0.5,  0.0, -1.0,  0.0, 3.0 / 3.0, 1.0 / 4.0,          // vertex 22 (7)
+  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 23 (6)
 };
 
 // and now define our indices that make up our triangles
@@ -245,21 +245,6 @@ GLint indices[] = {
    4,  5,  6, 
    4,  6,  7,  
 
-  /* reusing our first 8 vertices for rendering sides, top and bottom as per our previous example
-  1, 4, 7,
-  1, 7, 2,
-
-  5, 4, 1,
-  5, 1, 0,
-
-  3, 2, 7,
-  3, 7, 6, 
-  
-  5, 0, 3,
-  5, 3, 6, 
-  */
-  
-  // properly texturing our sides, top and bottom
   // left
    8,  9, 10,
    8, 10, 11,
@@ -305,8 +290,10 @@ void load_objects() {
   // now we need to configure our attributes, we use one for our position and one for our color attribute 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) 0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3) + sizeof(vec3));
   
   // now we load our indices into our second VBO
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBOs[1]);
@@ -394,9 +381,12 @@ void engineUpdate(double pSecondsPassed) {
 
 // engineRender is called to render our stuff
 void engineRender(int pWidth, int pHeight) {;
-  mat4 projection, mvp;
-  vec3 tmpvector;
+  mat4 projection, model;
+  vec3 tmpvector, sunvector;
   float ratio, left, top;
+  
+  // calculate our sun position
+  mat4ApplyToVec3(&sunvector,&sunPos, &view);
   
   // select our default VAO so we can render stuff that doesn't need our VAO
   glBindVertexArray(VAO);
@@ -415,19 +405,18 @@ void engineRender(int pWidth, int pHeight) {;
   mat4Identity(&projection);
   mat4Projection(&projection, 45.0, ratio, 1.0, 10000.0);
 
-  // set our model view projection matrix
-  mat4Copy(&mvp, &projection);
-  mat4Multiply(&mvp, &view);
-  mat4Translate(&mvp, vec3Set(&tmpvector, 0.0, 0.0, -30.0));   // move it back so we can see it
-  mat4Rotate(&mvp, rotate, vec3Set(&tmpvector, 1.5, 1.0, 0.5)); // rotate our cube
-  mat4Scale(&mvp, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
+  // set our model matrix
+  mat4Identity(&model);
+  mat4Translate(&model, vec3Set(&tmpvector, 0.0, 0.0, -30.0));   // move it back so we can see it
+  mat4Rotate(&model, rotate, vec3Set(&tmpvector, 1.5, 1.0, 0.5)); // rotate our cube
+  mat4Scale(&model, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
 
   // select our shader
-  glUseProgram(program);
-  glUniformMatrix4fv(mvpId, 1, false, (const GLfloat *) mvp.m);
+  shaderSelectProgram(shaderInfo, &projection, &view, &model);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, textures[TEXT_BOXTEXTURE]);
-  glUniform1i(boxTextureId, 0);      
+  glUniform1i(boxTextureId, 0);
+  glUniform3f(lightPosId, sunvector.x, sunvector.y, sunvector.z);   
 
   // now render our cube
   glBindVertexArray(VAO);

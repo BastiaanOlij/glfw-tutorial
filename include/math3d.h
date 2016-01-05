@@ -909,8 +909,9 @@ mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix) {
         pMatrix->m[0][2] * pInverse->m[2][0] + 
         pMatrix->m[0][3] * pInverse->m[3][0];
 
-  if (det == 0)
-    return NULL;
+  if (det == 0) {
+    return NULL;    
+  };
 
   det = 1.0 / det;
 
