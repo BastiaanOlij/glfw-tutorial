@@ -30,15 +30,16 @@ GLint         lightPosId;
 GLint         boxTextureId;
 vec3          sunPos = { 0.0, 10000.0, 5000.0 };
 
-// our view matrix
+// our camera (and view matrix)
 mat4          view;
+vec3          camera_eye = { 10.0, 20.0, 30.0 };
+vec3          camera_lookat =  { 0.0, 0.0, 0.0 };
 
 // and some runtime variables.
 double        frames = 0.0f;
 double        fps = 0.0f;
 double        lastframes = 0.0f;
 double        lastsecs = 0.0f;
-double        rotate = 0.0;
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -336,7 +337,7 @@ void engineInit() {
 
 // engineLoad loads any data that we need to load before we can start outputting stuff
 void engineLoad() {
-  vec3  tmpvector;
+  vec3  upvector;
   
   // load our font
   load_font();
@@ -347,8 +348,9 @@ void engineLoad() {
   // load our objects
   load_objects();
   
-  // init our view matrix, camera looking straight ahead
-  mat4Identity(&view);  
+  // init our view matrix
+  mat4Identity(&view);
+  mat4LookAt(&view, &camera_eye, &camera_lookat, vec3Set(&upvector, 0.0, 1.0, 0.0));  
 };
 
 // engineUnload unloads and frees up any data associated with our engine
@@ -363,10 +365,68 @@ void engineUnload() {
 // pSecondsPassed is the number of seconds passed since our application was started.
 void engineUpdate(double pSecondsPassed) {
   float delta;
-  
-  // rotate for display
-  rotate = pSecondsPassed * 20.0;
-  
+  vec3  avector, bvector, upvector;
+  mat4  M;
+    
+  // handle our keys....
+  if (engineKeyPressedCallback(GLFW_KEY_A)) {
+    // rotate position left
+    
+    // get our (reverse) looking direction vector
+    vec3Copy(&avector, &camera_eye);
+    vec3Sub(&avector, &camera_lookat);
+    
+    // rotate our looking direction vector around our up vector
+    mat4Identity(&M);
+    mat4Rotate(&M, 1.0, vec3Set(&bvector, view.m[0][1], view.m[1][1], view.m[2][1]));
+    
+    // and update our eye position accordingly
+    mat4ApplyToVec3(&camera_eye, &avector, &M);
+    vec3Add(&camera_eye, &camera_lookat);
+  } else if (engineKeyPressedCallback(GLFW_KEY_D)) {
+    // rotate position right
+    
+    // get our (reverse) looking direction vector
+    vec3Copy(&avector, &camera_eye);
+    vec3Sub(&avector, &camera_lookat);
+    
+    // rotate our looking direction vector around our up vector
+    mat4Identity(&M);
+    mat4Rotate(&M, -1.0, vec3Set(&bvector, view.m[0][1], view.m[1][1], view.m[2][1]));
+    
+    // and update our eye position accordingly
+    mat4ApplyToVec3(&camera_eye, &avector, &M);
+    vec3Add(&camera_eye, &camera_lookat);
+  } else if (engineKeyPressedCallback(GLFW_KEY_W)) {
+    // get our (reverse) looking direction vector
+    vec3Copy(&avector, &camera_eye);
+    vec3Sub(&avector, &camera_lookat);
+    
+    // rotate our looking direction vector around our right vector
+    mat4Identity(&M);
+    mat4Rotate(&M, 1.0, vec3Set(&bvector, view.m[0][0], view.m[1][0], view.m[2][0]));
+    
+    // and update our eye position accordingly
+    mat4ApplyToVec3(&camera_eye, &avector, &M);
+    vec3Add(&camera_eye, &camera_lookat);    
+  } else if (engineKeyPressedCallback(GLFW_KEY_S)) {
+    // get our (reverse) looking direction vector
+    vec3Copy(&avector, &camera_eye);
+    vec3Sub(&avector, &camera_lookat);
+    
+    // rotate our looking direction vector around our right vector
+    mat4Identity(&M);
+    mat4Rotate(&M, -1.0, vec3Set(&bvector, view.m[0][0], view.m[1][0], view.m[2][0]));
+    
+    // and update our eye position accordingly
+    mat4ApplyToVec3(&camera_eye, &avector, &M);
+    vec3Add(&camera_eye, &camera_lookat);    
+  };
+
+  // update our view matrix
+  mat4Identity(&view);
+  mat4LookAt(&view, &camera_eye, &camera_lookat, vec3Set(&upvector, 0.0, 1.0, 0.0));
+    
   // update our frame counter
   frames += 1.0f;
   delta = pSecondsPassed - lastsecs;
@@ -387,7 +447,7 @@ void engineRender(int pWidth, int pHeight) {;
   
   // calculate our sun position
   mat4ApplyToVec3(&sunvector,&sunPos, &view);
-  
+    
   // select our default VAO so we can render stuff that doesn't need our VAO
   glBindVertexArray(VAO);
   
@@ -404,11 +464,9 @@ void engineRender(int pWidth, int pHeight) {;
   // init our projection matrix, we use a 3D projection matrix now
   mat4Identity(&projection);
   mat4Projection(&projection, 45.0, ratio, 1.0, 10000.0);
-
+  
   // set our model matrix
   mat4Identity(&model);
-  mat4Translate(&model, vec3Set(&tmpvector, 0.0, 0.0, -30.0));   // move it back so we can see it
-  mat4Rotate(&model, rotate, vec3Set(&tmpvector, 1.5, 1.0, 0.5)); // rotate our cube
   mat4Scale(&model, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
 
   // select our shader
@@ -447,7 +505,7 @@ void engineRender(int pWidth, int pHeight) {;
     gl3fonsProjection(fs, (GLfloat *)projection.m);
 
     // what text shall we draw?
-    sprintf(info,"FPS: %0.1f", fps);
+    sprintf(info,"FPS: %0.1f, use wasd to move the camera", fps);
         
     // and draw some text
     fonsDrawText(fs, -ratio * 250.0f, 230.0f, info, NULL);

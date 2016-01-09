@@ -140,6 +140,7 @@ vec3* vec3Copy(vec3* pSet, const vec3* pCopy);
 MATH3D_FLOAT vec3Dot(const vec3* pVecA, const vec3* pVecB);
 vec3* vec3Cross(vec3* pDest, const vec3* pVecA, const vec3* pVecB);
 MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf);
+vec3* vec3Normalise(vec3 * pNormalise);
 vec3* vec3Add(vec3* pAddTo, const vec3* pAdd);
 vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub);
 vec3* vec3Scale(vec3* pSet, const float pScale);
@@ -179,6 +180,7 @@ mat4* mat4Scale(mat4 *pMatrix, const vec3* pScale);
 mat4* mat4Ortho(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Frustum(mat4* pMatrix, MATH3D_FLOAT pLeft, MATH3D_FLOAT pRight, MATH3D_FLOAT pBottom, MATH3D_FLOAT pTop, MATH3D_FLOAT pZNear, MATH3D_FLOAT pZFar);
 mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT fov, MATH3D_FLOAT aspect, MATH3D_FLOAT znear, MATH3D_FLOAT zfar);
+mat4* mat4LookAt(mat4* pMatrix, const vec3* pEye, const vec3* pLookat, const vec3* pUp);
 
 mat3* mat3FromMat4(mat3* pSet, const mat4* pFrom);
 mat4* mat4FromMat3(mat4* pSet, const mat3* pFrom);
@@ -334,6 +336,15 @@ vec3* vec3Cross(vec3* pDest, const vec3* pVecA, const vec3* pVecB) {
   return pDest;
 };
 
+// Returns the lenght of a vector
+// vec3 vector;
+// vec3Set(&vector, 0.0, 5.0, 0.0);
+// GLfloat L = vec3Length(&vector);
+// L is now 5.0
+MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf) {
+  return sqrt(vec3Dot(pLengthOf, pLengthOf));
+};
+
 // Normalises our vector, this results in our vector becoming unit lenght.
 // vec3 vector;
 // vec3Set(&vector, 5.0, 0.0, 0.0);
@@ -354,15 +365,6 @@ vec3* vec3Normalise(vec3 *pNormalise) {
   };
   
   return pNormalise;
-};
-
-// Returns the lenght of a vector
-// vec3 vector;
-// vec3Set(&vector, 0.0, 5.0, 0.0);
-// GLfloat L = vec3Length(&vector);
-// L is now 5.0
-MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf) {
-  return sqrt(vec3Dot(pLengthOf, pLengthOf));
 };
 
 // Adds a vector to another vector:
@@ -1028,6 +1030,66 @@ mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT pFOV, MATH3D_FLOAT pAspect, MAT
   xmax = ymax * pAspect;
   
   return mat4Frustum(pMatrix, -xmax, xmax, -ymax, ymax, pZNear, pZFar);
+};
+
+// Applies a look-at matrix to create a view matrix
+// pEye is the position of our camera
+// pLookat is the position we're looking at
+// pUp is the vector that points up (make sure this is a normalised vector!)
+mat4* mat4LookAt(mat4* pMatrix, const vec3* pEye, const vec3* pLookat, const vec3* pUp) {
+  mat4      M;
+  vec3      xaxis, yaxis, zaxis;
+  GLfloat   dot;
+  
+  // zaxis = pEye - pLookat, the direction we are looking at
+  vec3Copy(&zaxis, pEye);
+  vec3Sub(&zaxis, pLookat);
+  vec3Normalise(&zaxis);
+  
+  // check if we're looking straight up, if so this calculation fails
+  dot = vec3Dot(&zaxis, pUp);
+	if (dot==1.0) {
+    // right is right, unless thats strangely enough up...
+    vec3Set(&xaxis, 1.0, 0.0, 0.0);
+	} else {
+    // Cross vector gets the vector that is perpendicular to the plain formed by the other two vectors. So with up and our direction of looking, it gives our right vector
+    vec3Cross(&xaxis, pUp, &zaxis);
+	};
+  vec3Normalise(&xaxis);
+	
+  // And we do the same for our real "up" vector which is now perpendicular to our right (X) and forward (Z) vectors
+  vec3Cross(&yaxis, &zaxis, &xaxis);
+  vec3Normalise(&yaxis);
+	  
+	M.m[0][0] = xaxis.x;
+	M.m[0][1] = yaxis.x;
+	M.m[0][2] = zaxis.x;
+	M.m[0][3] = 0.0f;
+
+	M.m[1][0] = xaxis.y;
+	M.m[1][1] = yaxis.y;
+	M.m[1][2] = zaxis.y;
+	M.m[1][3] = 0.0f;
+	
+	M.m[2][0] = xaxis.z;
+	M.m[2][1] = yaxis.z;
+	M.m[2][2] = zaxis.z;
+	M.m[2][3] = 0.0f;
+
+	M.m[3][0] = 0.0;
+	M.m[3][1] = 0.0;
+	M.m[3][2] = 0.0;
+	M.m[3][3] = 1.0f;
+  
+  mat4Multiply(pMatrix, &M);
+  
+  // now translate to our eye position
+  mat4Identity(&M);
+	M.m[3][0] = -pEye->x;
+	M.m[3][1] = -pEye->y;
+	M.m[3][2] = -pEye->z;
+    
+  return mat4Multiply(pMatrix, &M);  
 };
 
 // Initialize a 3x3 matrix from a 4x4 matrix, discards the last column and row
