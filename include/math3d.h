@@ -217,7 +217,7 @@ vec2* vec2Copy(vec2* pSet, const vec2* pCopy) {
 // vec2 vecA, vecB;
 // vec2Set(&vecA, 0.0, 0.1);
 // vec2Set(&vecB, 0.1, 0.0);
-// GLfloat dot = vec2Dot(&vecA, &vecB);
+// MATH3D_FLOAT dot = vec2Dot(&vecA, &vecB);
 // dot is now 0.0
 // Note that when the two vectors are unit vectors (normalized) vec2Dot actually returns the cosine value of the angle between the two vectors. Amazingly handy.
 MATH3D_FLOAT vec2Dot(const vec2* pVecA, const vec2* pVecB) {
@@ -247,7 +247,7 @@ vec2* vec2Normalise(vec2 *pNormalise) {
 // Returns the lenght of a vector
 // vec2 vector;
 // vec2Set(&vector, 0.0, 5.0);
-// GLfloat L = vec2Length(&vector);
+// MATH3D_FLOAT L = vec2Length(&vector);
 // L is now 5.0
 MATH3D_FLOAT vec2Lenght(const vec2* pLengthOf) {
   return sqrt(vec2Dot(pLengthOf, pLengthOf));
@@ -319,7 +319,7 @@ vec3* vec3Copy(vec3* pSet, const vec3* pCopy) {
 // vec3 vecA, vecB;
 // vec3Set(&vecA, 0.0, 0.1, 0.0);
 // vec3Set(&vecB, 0.1, 0.0, 1.0);
-// GLfloat dot = vec3Dot(&vecA, &vecB);
+// MATH3D_FLOAT dot = vec3Dot(&vecA, &vecB);
 // dot is now 0.0
 // Note that when the two vectors are unit vectors (normalized) vec3Dot actually returns the cosine value of the angle between the two vectors. Amazingly handy.
 MATH3D_FLOAT vec3Dot(const vec3* pVecA, const vec3* pVecB) {
@@ -339,7 +339,7 @@ vec3* vec3Cross(vec3* pDest, const vec3* pVecA, const vec3* pVecB) {
 // Returns the lenght of a vector
 // vec3 vector;
 // vec3Set(&vector, 0.0, 5.0, 0.0);
-// GLfloat L = vec3Length(&vector);
+// MATH3D_FLOAT L = vec3Length(&vector);
 // L is now 5.0
 MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf) {
   return sqrt(vec3Dot(pLengthOf, pLengthOf));
@@ -438,7 +438,7 @@ vec4* vec4Copy(vec4* pSet, const vec4* pCopy) {
 // vec4 vecA, vecB;
 // vec4Set(&vecA, 0.0, 0.1, 0.0, 1.0);
 // vec4Set(&vecB, 0.1, 0.0, 1.0, 0.0);
-// GLfloat dot = vec4Dot(&vecA, &vecB);
+// MATH3D_FLOAT dot = vec4Dot(&vecA, &vecB);
 // dot is now 0.0
 // Note that when the two vectors are unit vectors (normalized) vec4Dot actually returns the cosine value of the angle between the two vectors. Amazingly handy.
 MATH3D_FLOAT vec4Dot(const vec4* pVecA, const vec4* pVecB) {
@@ -472,7 +472,7 @@ vec4* vec4Normalise(vec4 *pNormalise) {
 // Returns the lenght of a vector
 // vec4 vector;
 // vec4Set(&vector, 0.0, 5.0, 0.0, 0.0);
-// GLfloat L = vec4Length(&vector);
+// MATH3D_FLOAT L = vec4Length(&vector);
 // L is now 5.0
 MATH3D_FLOAT vec4Lenght(const vec4* pLengthOf) {
   return sqrt(vec4Dot(pLengthOf, pLengthOf));
@@ -1037,9 +1037,9 @@ mat4* mat4Projection(mat4* pMatrix, MATH3D_FLOAT pFOV, MATH3D_FLOAT pAspect, MAT
 // pLookat is the position we're looking at
 // pUp is the vector that points up (make sure this is a normalised vector!)
 mat4* mat4LookAt(mat4* pMatrix, const vec3* pEye, const vec3* pLookat, const vec3* pUp) {
-  mat4      M;
-  vec3      xaxis, yaxis, zaxis;
-  GLfloat   dot;
+  mat4            M;
+  vec3            xaxis, yaxis, zaxis;
+  MATH3D_FLOAT    dot;
   
   // zaxis = pEye - pLookat, the direction we are looking at
   vec3Copy(&zaxis, pEye);

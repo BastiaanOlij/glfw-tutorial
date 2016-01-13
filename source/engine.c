@@ -15,9 +15,12 @@
 EngineError engineErrCallback = NULL;
 EngineKeyPressed engineKeyPressedCallback = NULL;
 
-GLuint        VAO = 0;
-GLuint        VBOs[2] = { 0, 0 };
-GLuint        textures[TEXT_COUNT] = { 0 };
+mesh3d *      cube;
+bool          canRenderCube = true;
+mesh3d *      sphere;
+bool          canRenderSphere = true;
+
+GLuint        textures[TEXT_COUNT] = { 0, 0 };
 
 // and some globals for our fonts
 FONScontext * fs = NULL;
@@ -28,7 +31,7 @@ float         lineHeight = 0.0f;
 shaderStdInfo shaderInfo;
 GLint         lightPosId;
 GLint         boxTextureId;
-vec3          sunPos = { 0.0, 10000.0, 5000.0 };
+vec3          sunPos = { 0.0, 0.0, 5000.0 };
 
 // our camera (and view matrix)
 mat4          view;
@@ -40,6 +43,7 @@ double        frames = 0.0f;
 double        fps = 0.0f;
 double        lastframes = 0.0f;
 double        lastsecs = 0.0f;
+
 
 //////////////////////////////////////////////////////////
 // error handling
@@ -53,6 +57,7 @@ void engineSetErrorCallback(EngineError pCallback) {
   shaderSetErrorCallback(engineErrCallback);
 //  tsSetErrorCallback(engineErrCallback);
 //  spSetErrorCallback(engineErrCallback);
+  meshSetErrorCallback(engineErrCallback);
 };
 
 //////////////////////////////////////////////////////////
@@ -178,93 +183,6 @@ void unload_shaders() {
 //////////////////////////////////////////////////////////
 // Objects
 
-//  We're building a cube:
-//
-//      5------------4
-//     /|           /|
-//    / |          / |
-//   0------------1  |
-//   |  |         |  |
-//   |  |         |  |
-//   |  6---------|--7
-//   | /          | /
-//   |/           |/
-//   3------------2
-
-// we define a structure for our vertices
-typedef struct vertex {
-  vec3    V;          // position of our vertice (XYZ)
-  vec3    N;          // normal of our vertice (XYZ)
-  vec2    T;          // texture coordinates (XY)
-} vertex;
-
-vertex vertices[] = {
-  // front
-  -0.5,  0.5,  0.5,  0.0,  0.0,  1.0, 1.0 / 3.0,       0.0,          // vertex 0
-   0.5,  0.5,  0.5,  0.0,  0.0,  1.0, 2.0 / 3.0,       0.0,          // vertex 1
-   0.5, -0.5,  0.5,  0.0,  0.0,  1.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 2
-  -0.5, -0.5,  0.5,  0.0,  0.0,  1.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 3
-
-  // back
-   0.5,  0.5, -0.5,  0.0,  0.0, -1.0, 1.0 / 3.0, 1.0 / 2.0,          // vertex 4
-  -0.5,  0.5, -0.5,  0.0,  0.0, -1.0, 2.0 / 3.0, 1.0 / 2.0,          // vertex 5
-  -0.5, -0.5, -0.5,  0.0,  0.0, -1.0, 2.0 / 3.0, 3.0 / 4.0,          // vertex 6
-   0.5, -0.5, -0.5,  0.0,  0.0, -1.0, 1.0 / 3.0, 3.0 / 4.0,          // vertex 7
-   
-   // left
-  -0.5,  0.5, -0.5, -1.0,  0.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 8  (5)
-  -0.5,  0.5,  0.5, -1.0,  0.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 9  (0)
-  -0.5, -0.5,  0.5, -1.0,  0.0,  0.0, 2.0 / 3.0, 2.0 / 4.0,          // vertex 10 (3)
-  -0.5, -0.5, -0.5, -1.0,  0.0,  0.0, 1.0 / 3.0, 2.0 / 4.0,          // vertex 11 (6)
-
-  // right
-   0.5,  0.5,  0.5,  1.0,  0.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 12 (1)
-   0.5,  0.5, -0.5,  1.0,  0.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 13 (4)
-   0.5, -0.5, -0.5,  1.0,  0.0,  0.0, 2.0 / 3.0, 2.0 / 4.0,          // vertex 14 (7)
-   0.5, -0.5,  0.5,  1.0,  0.0,  0.0, 1.0 / 3.0, 2.0 / 4.0,          // vertex 15 (2)
-
-  // top
-  -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,       0.0,       0.0,          // vertex 16 (5)
-   0.5,  0.5, -0.5,  0.0,  1.0,  0.0, 1.0 / 3.0,       0.0,          // vertex 17 (4)
-   0.5,  0.5,  0.5,  0.0,  1.0,  0.0, 1.0 / 3.0, 1.0 / 4.0,          // vertex 18 (1)
-  -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,       0.0, 1.0 / 4.0,          // vertex 19 (0)
-
-  // bottom
-  -0.5, -0.5,  0.5,  0.0, -1.0,  0.0, 2.0 / 3.0,       0.0,          // vertex 20 (3)
-   0.5, -0.5,  0.5,  0.0, -1.0,  0.0, 3.0 / 3.0,       0.0,          // vertex 21 (2)
-   0.5, -0.5, -0.5,  0.0, -1.0,  0.0, 3.0 / 3.0, 1.0 / 4.0,          // vertex 22 (7)
-  -0.5, -0.5, -0.5,  0.0, -1.0,  0.0, 2.0 / 3.0, 1.0 / 4.0,          // vertex 23 (6)
-};
-
-// and now define our indices that make up our triangles
-GLint indices[] = {
-  // front
-   0,  1,  2,
-   0,  2,  3,
-
-  // back
-   4,  5,  6, 
-   4,  6,  7,  
-
-  // left
-   8,  9, 10,
-   8, 10, 11,
-  
-  // right
-  12, 13, 14,
-  12, 14, 15,
-  
-  // top
-  16, 17, 18,
-  16, 18, 19,
-  
-  // bottom
-  20, 21, 22,
-  20, 22, 23,
-};
-
-#define NUM_TRIANGLES (sizeof(indices) / sizeof(GLint))
-
 void setTexture(GLuint pTexture, GLint pFilter, GLint pWrap) {
   glBindTexture(GL_TEXTURE_2D, pTexture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
@@ -277,34 +195,13 @@ void load_objects() {
 	int x, y, comp;
   unsigned char * data;
   
-  // we start with creating our vertex array object
-  glGenVertexArrays(1, &VAO);
-  glGenBuffers(2, VBOs);
-  
-  // select our VAO
-  glBindVertexArray(VAO);
-  
-  // now load our vertices into our first VBO
-  glBindBuffer(GL_ARRAY_BUFFER, VBOs[0]);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
-  
-  // now we need to configure our attributes, we use one for our position and one for our color attribute 
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) 0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3) + sizeof(vec3));
-  
-  // now we load our indices into our second VBO
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBOs[1]);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), &indices, GL_STATIC_DRAW);
-  
-  // at this point in time our two buffers are bound to our vertex array so any time we bind our vertex array
-  // our two buffers are bound aswell
+  cube = newMesh(24, 12);                     // init our cube with enough space for our buffers
+  meshMakeCube(cube, 10.0, 10.0, 10.0);       // create our cube
+  meshCopyToGL(cube, true);                   // copy our cube data to the GPU
 
-  // and clear our selected vertex array object
-  glBindVertexArray(0);
+  sphere = newMesh(100, 100);                 // init our sphere with default space for our buffers
+  meshMakeSphere(sphere, 15.0);               // create our sphere
+  meshCopyToGL(sphere, true);                 // copy our sphere data to the GPU
   
   // Now lets load our textures, note that this does not relate to our VAO state
   glGenTextures(TEXT_COUNT, textures);
@@ -319,12 +216,25 @@ void load_objects() {
 		
 		stbi_image_free(data);
   };
+
+  // and we load our sphere texture into textures[TEXT_EARTH]
+	data = stbi_load("EarthMap.jpg", &x, &y, &comp, 4);
+  if (data == 0) {
+    engineErrCallback(-1, "Couldn't load EarthMap.jpg");
+  } else {
+  	setTexture(textures[TEXT_EARTH], GL_LINEAR, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, x, y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		
+		stbi_image_free(data);
+  };
 };
 
 void unload_objects() {
   glDeleteTextures(TEXT_COUNT, textures);
-  glDeleteBuffers(2, VBOs);
-  glDeleteVertexArrays(1, &VAO);
+
+  // free up our buffers
+  meshFree(sphere);
+  meshFree(cube);
 };
 
 //////////////////////////////////////////////////////////
@@ -447,15 +357,14 @@ void engineRender(int pWidth, int pHeight) {;
   
   // calculate our sun position
   mat4ApplyToVec3(&sunvector,&sunPos, &view);
-    
-  // select our default VAO so we can render stuff that doesn't need our VAO
-  glBindVertexArray(VAO);
-  
+      
   // enable and configure our backface culling
-	glEnable(GL_CULL_FACE); // enable culling
-  glFrontFace(GL_CW);     // clockwise
-	glCullFace(GL_BACK);    // backface culling
+	glEnable(GL_CULL_FACE);   // enable culling
+  glFrontFace(GL_CW);       // clockwise
+	glCullFace(GL_BACK);      // backface culling
   // enable our depth test
+  glEnable(GL_DEPTH_TEST);
+  // disable alpha blending  
   glDisable(GL_BLEND);
 
   // set our model view projection matrix
@@ -467,7 +376,7 @@ void engineRender(int pWidth, int pHeight) {;
   
   // set our model matrix
   mat4Identity(&model);
-  mat4Scale(&model, vec3Set(&tmpvector, 10.0, 10.0, 10.0));   // make our cube 10x10x10 big
+  mat4Translate(&model, vec3Set(&tmpvector, -10.0, 0.0, 0.0));
 
   // select our shader
   shaderSelectProgram(shaderInfo, &projection, &view, &model);
@@ -477,8 +386,25 @@ void engineRender(int pWidth, int pHeight) {;
   glUniform3f(lightPosId, sunvector.x, sunvector.y, sunvector.z);   
 
   // now render our cube
-  glBindVertexArray(VAO);
-  glDrawElements(GL_TRIANGLES, NUM_TRIANGLES, GL_UNSIGNED_INT, 0);	
+  if (canRenderCube) {
+    canRenderCube = meshRender(cube);    
+  };
+
+  // set our model matrix
+  mat4Identity(&model);
+  mat4Translate(&model, vec3Set(&tmpvector, 10.0, 0.0, 0.0));
+
+  // select our shader
+  shaderSelectProgram(shaderInfo, &projection, &view, &model);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, textures[TEXT_EARTH]);
+  glUniform1i(boxTextureId, 0);
+  glUniform3f(lightPosId, sunvector.x, sunvector.y, sunvector.z);   
+
+  // now render our sphere
+  if (canRenderSphere) {
+    canRenderSphere = meshRender(sphere);    
+  };
     
   // unset stuff
   glBindVertexArray(0);

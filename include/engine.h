@@ -34,10 +34,12 @@
 #include "stb/stb_image.h"
 // #include "tilemap.h"
 // #include "spritesheet.h"
+#include "mesh3d.h"
 
 // enumerations
 enum texture_types {
   TEXT_BOXTEXTURE,
+  TEXT_EARTH,
   TEXT_COUNT
 };
 

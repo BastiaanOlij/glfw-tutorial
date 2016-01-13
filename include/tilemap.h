@@ -83,8 +83,7 @@ void tsInit(tileshader* pTS) {
 
 TSError tsErrCallback = NULL;
 
-// sets our error callback method which is modelled after 
-// GLFWs error handler so you can use the same one
+// sets our error callback method
 void tsSetErrorCallback(TSError pCallback) {
   tsErrCallback = pCallback;
 };

@@ -7,7 +7,7 @@ uniform vec3		  lightcol = vec3(1.0, 1.0, 1.0);	  // color of the light of our s
 
 // info about our material
 uniform sampler2D boxtexture;                       // our texture map
-uniform float		  shininess = 50.0;                 // shininess
+uniform float		  shininess = 30.0;                 // shininess
 
 in vec4           V;                                // position of fragment after modelView matrix was applied
 in vec3           N;                                // normal vector for our fragment
@@ -37,12 +37,17 @@ void main() {
   // now for our specular lighting
 	vec3 specColor = vec3(0.0);
   if ((NdotL != 0.0) && (shininess != 0.0)) {
-    vec3 R = reflect(-L, N);
-    float VdotR = max(0.0, dot(normalize(-V.xyz), R));
-    float specPower = pow(VdotR, shininess);
+//    vec3 R = reflect(-L, N);
+//    float VdotR = max(0.0, dot(normalize(-V.xyz), R));
+//    float specPower = pow(VdotR, shininess);
+
+    // slightly different way to calculate our specular highlight
+		vec3	halfVector	= normalize(L - normalize(V.xyz));
+		float	nxHalf = max(0.0, dot(N, halfVector));
+		float	specPower = pow(nxHalf, shininess);
 		
     specColor = lightcol * specPower;
-  };  
+  };
   
   // and add them all together
   fragcolor = vec4(clamp(ambientColor+diffuseColor+specColor, 0.0, 1.0), 1.0);

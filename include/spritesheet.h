@@ -96,8 +96,7 @@ void spInit(spritesheet* pSP) {
 
 SPError spErrCallback = NULL;
 
-// sets our error callback method which is modelled after 
-// GLFWs error handler so you can use the same one
+// sets our error callback method
 void spSetErrorCallback(TSError pCallback) {
   spErrCallback = pCallback;
 };

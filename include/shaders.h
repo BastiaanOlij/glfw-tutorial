@@ -72,8 +72,7 @@ void shaderSelectProgram(shaderStdInfo pInfo, mat4 * pProjection, mat4 * pView, 
 
 ShaderError shaderErrCallback = NULL;
 
-// sets our error callback method which is modelled after 
-// GLFWs error handler so you can use the same one
+// sets our error callback method
 void shaderSetErrorCallback(ShaderError pCallback) {
   shaderErrCallback = pCallback;
 };
@@ -309,9 +308,12 @@ void shaderSelectProgram(shaderStdInfo pInfo, mat4 * pProjection, mat4 * pView, 
   };
   
   // now transpose our model-view inverse matrix
-  mat4Transpose(&modelViewInverse);
+//  mat4Transpose(&modelViewInverse);
   // now get just the rotation part
-  mat3FromMat4(&normalMatrix, &modelViewInverse);
+//  mat3FromMat4(&normalMatrix, &modelViewInverse);
+
+  // well the above does not seem to work very well...
+  mat3FromMat4(&normalMatrix, &modelView);
   
   if (pInfo.normalMatrixId >= 0) {
     glUniformMatrix3fv(pInfo.normalMatrixId, 1, false, (const GLfloat *) normalMatrix.m);
@@ -325,7 +327,6 @@ void shaderSelectProgram(shaderStdInfo pInfo, mat4 * pProjection, mat4 * pView, 
   };
 };
 
+#endif /* SHADER_IMPLEMENTATION */
 
-#endif
-
-#endif
+#endif /* !shadersh */
