@@ -165,7 +165,7 @@ GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex) {
     pMesh->numVertices = 0;
     pMesh->verticesSize = BUFFER_EXPAND;
     pMesh->verticesData = (vertex *) malloc(sizeof(vertex) * pMesh->verticesSize);
-  } else if (pMesh->verticesSize >= pMesh->numIndices + 1) {
+  } else if (pMesh->verticesSize <= pMesh->numVertices + 1) {
     pMesh->verticesSize += BUFFER_EXPAND;
     pMesh->verticesData = (vertex *) realloc(pMesh->verticesData, sizeof(vertex) * pMesh->verticesSize);
   };
@@ -194,7 +194,7 @@ bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC) {
     pMesh->numIndices = 0;
     pMesh->indicesSize = BUFFER_EXPAND;
     pMesh->indicesData = (GLuint *) malloc(sizeof(GLuint) * pMesh->indicesSize);
-  } else if (pMesh->verticesSize >= pMesh->numIndices + 3) {
+  } else if (pMesh->indicesSize <= pMesh->numIndices + 3) {
     pMesh->indicesSize += BUFFER_EXPAND;
     pMesh->indicesData = (GLuint *) realloc(pMesh->indicesData, sizeof(GLuint) * pMesh->indicesSize);
   };
