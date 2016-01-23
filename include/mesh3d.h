@@ -298,7 +298,7 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) 0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3));
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) sizeof(vec3) + sizeof(vec3));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid *) (sizeof(vec3) + sizeof(vec3)));
   
   // now we load our indices into our second VBO
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pMesh->VBO[1]);
@@ -431,6 +431,7 @@ GLuint cubeIndices[] = {
 
 // loads a cube
 bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth) {
+  int i;
   if (pMesh == NULL) {
     return false;
   };
@@ -444,7 +445,7 @@ bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDept
   };
   
   // add our vertices
-  for (int i = 0; i < 24; i++) {
+  for (i = 0; i < 24; i++) {
     vertex newvertex = cubeVertices[i];
     newvertex.V.x *= pWidth;
     newvertex.V.y *= pHeight;
@@ -453,7 +454,7 @@ bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDept
   };
   
   // add our indices
-  for (int i = 0; i < CUBE_NUM_TRIANGLES; i += 3) {
+  for (i = 0; i < CUBE_NUM_TRIANGLES; i += 3) {
     meshAddFace(pMesh, cubeIndices[i], cubeIndices[i+1], cubeIndices[i+2]);
   };
   
@@ -463,6 +464,7 @@ bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDept
 // loads a sphere
 bool meshMakeSphere(mesh3d * pMesh, GLfloat pRadius) {
   int vertices = 0, indices = 0;
+  GLfloat xAng, yAng;
 
   if (pMesh == NULL) {
     return false;
@@ -477,9 +479,9 @@ bool meshMakeSphere(mesh3d * pMesh, GLfloat pRadius) {
   };
 
   // slices of X every 7.5 degrees and yes we duplicate our first vertex (e.g. 145 points)
-  for (GLfloat xAng = 0.0; xAng <= 360.0; xAng += 2.5) {
+  for (xAng = 0.0; xAng <= 360.0; xAng += 2.5) {
     // slices of Y every 15 degrees and yes we duplicate our first and last vertex for every slice (e.g. 73 points)
-    for (GLfloat yAng = 0.0; yAng <= 180.0; yAng += 2.5) {
+    for (yAng = 0.0; yAng <= 180.0; yAng += 2.5) {
       vertex  myVertex;
       
       myVertex.V.x = pRadius * sin(angToRad(yAng)) * sin(angToRad(-xAng)) * 0.5;
@@ -527,6 +529,7 @@ unsigned int objFindIndex(mesh3d * pMesh, varchar * pText, dynarray * pObjVertic
   unsigned int    from = 0;
   unsigned int    pos;
   varchar *       idx;
+  int             i;
   
   // add dividers
   varcharAppend(pText, "///", 3);
@@ -581,7 +584,7 @@ unsigned int objFindIndex(mesh3d * pMesh, varchar * pText, dynarray * pObjVertic
 //  errorlog(0, "Parsed %i, %i, %i", findVertex.posIdx, findVertex.coordIdx, findVertex.normalIdx);
   
   // let's see if we already have it...
-  for (int i = 0; i < pObjVertices->numEntries; i++) {
+  for (i = 0; i < pObjVertices->numEntries; i++) {
     objVertexIdx compare;
     memcpy(&compare, dynArrayDataAtIndex(pObjVertices, i), sizeof(objVertexIdx));
     if ((compare.posIdx == findVertex.posIdx) && (compare.coordIdx == findVertex.coordIdx) && (compare.normalIdx == findVertex.normalIdx)) {

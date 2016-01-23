@@ -127,12 +127,13 @@ void matRelease(material * pMat) {
 // find a material by name in our list
 // material * myMaterial = getMatByName(materials, "FunkyColor");
 material * getMatByName(llist * pMatList, char * pName) {
+  llistNode * node;
   if (pMatList == NULL) {
     errorlog(-1, "Attempted to find material in NULL list");
     return NULL;
   };
   
-  llistNode * node = pMatList->first;
+  node = pMatList->first;
   while (node != NULL) {
     material * mat = node->data;
     if (mat != NULL) {

@@ -1,4 +1,4 @@
-/********************************************************
+	/********************************************************
  * shaders.h - shader library by Bastiaan Olij 2015
  * 
  * Public domain, use as you say fit, disect, change,
@@ -343,7 +343,7 @@ shaderStdInfo shaderGetStdInfo(GLuint pProgram) {
   
   info.shininessId = glGetUniformLocation(info.program, "shininess");
   if (info.shininessId < 0) {
-    errorlog(info.textureMapId, "Unknown uniform shininess");    
+    errorlog(info.shininessId, "Unknown uniform shininess");    
   };
   
   info.textureMapId = glGetUniformLocation(info.program, "textureMap");

@@ -1,4 +1,4 @@
-/********************************************************
+	/********************************************************
  * varchar.h - variable length char by Bastiaan Olij 2016
  * 
  * Public domain, use as you say fit, disect, change,
@@ -255,6 +255,7 @@ bool varcharAppend(varchar * pVarchar, const char * pText, unsigned int pLen) {
 // varcharRelease(myVarchar); // don't forget to release it once we're done!!
 
 void varcharTrim(varchar * pVarchar) {
+  int i;
   if (pVarchar == NULL) {
     // ??
   } else if (pVarchar->text == NULL) {
@@ -262,7 +263,7 @@ void varcharTrim(varchar * pVarchar) {
   } else {
     // while the first character is a space/tab, remove it
     while ((pVarchar->text[0] == ' ') || (pVarchar->text[0] == '\t')) {
-      for (int i = 1; i <= pVarchar->len; i++) { // <= means we also copy our 0 terminator!
+      for (i = 1; i <= pVarchar->len; i++) { // <= means we also copy our 0 terminator!
         pVarchar->text[i-1] = pVarchar->text[i];
       };
       pVarchar->len--;

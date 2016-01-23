@@ -133,7 +133,7 @@ unsigned int dynArrayPush(dynarray * pArray, void * pData) {
   };
 
   // copy our data in place
-  memcpy(pArray->data + (pArray->numEntries * pArray->entrySize), pData, pArray->entrySize);
+  memcpy((char *) pArray->data + (pArray->numEntries * pArray->entrySize), pData, pArray->entrySize);
 
   // return and advance
   return pArray->numEntries++;
@@ -150,7 +150,7 @@ void * dynArrayDataAtIndex(dynarray * pArray, unsigned int pIndex) {
     return NULL;
   };
   
-  return pArray->data + (pIndex * pArray->entrySize);
+  return (char *) pArray->data + (pIndex * pArray->entrySize);
 };
 
 #endif /* DYNARRAY_IMPLEMENTATION */

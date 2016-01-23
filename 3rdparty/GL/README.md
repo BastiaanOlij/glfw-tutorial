@@ -1,4 +1,4 @@
-This folder contains compiled binaries for the GLEW 1.12.0 library.
+This folder contains compiled binaries for the GLEW 1.13.0 library.
 
 Note: on Mac build against i386 and x86_64 architectures by editing config\Makefile.darwin and adding:
 AR = LIBTOOL

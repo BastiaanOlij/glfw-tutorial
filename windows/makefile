@@ -20,6 +20,7 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\tie-bomber.obj \
   $(CONTENTSDIR)\flatcolor.fs \
   $(CONTENTSDIR)\textured.fs \
+  $(CONTENTSDIR)\reflect.fs \
   $(CONTENTSDIR)\standard.vs
 	
 $(CONTENTSDIR): 
@@ -37,10 +38,28 @@ $(CONTENTSDIR)\glew32.dll: ..\3rdparty\GL\glew32.dll
 $(CONTENTSDIR)\DroidSerif-Regular.ttf: ..\resources\DroidSerif-Regular.ttf
   copy /B /Y $** $@
 
-$(CONTENTSDIR)\simple.fs: ..\resources\tilemap.fs
+$(CONTENTSDIR)\boxtexture.jpg: ..\resources\boxtexture.jpg
   copy /B /Y $** $@
 
-$(CONTENTSDIR)\simple.vs: ..\resources\tilemap.vs
+$(CONTENTSDIR)\EarthMap.jpg: ..\resources\EarthMap.jpg
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\tie-bomber.mtl: ..\resources\tie-bomber.mtl
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\tie-bomber.obj: ..\resources\tie-bomber.obj
+  copy /B /Y $** $@
+  
+$(CONTENTSDIR)\flatcolor.fs: ..\resources\flatcolor.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\textured.fs: ..\resources\textured.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\reflect.fs: ..\resources\reflect.fs
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\standard.vs: ..\resources\standard.vs
   copy /B /Y $** $@
 
 $(OBJECTDIR)\engine.obj: ..\source\engine.c ..\include\engine.h

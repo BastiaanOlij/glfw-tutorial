@@ -87,11 +87,13 @@ llist * newLlist(dataRetainFunc pDataRetain, dataFreeFunc pDataFree) {
 // frees the memory related to our linked list. If a release function was provided all objects are released.
 // llistFree(myList);
 void llistFree(llist * pList) {
+  llistNode * nextNode;
+
   if (pList == NULL) {
     return;
   };
   
-  llistNode * nextNode = pList->first;
+  nextNode = pList->first;
   while (nextNode != NULL) {
     llistNode * currNode = nextNode;
     nextNode = currNode->next;

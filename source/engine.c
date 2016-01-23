@@ -1,4 +1,4 @@
-/********************************************************
+	/********************************************************
  * Engine is our container for our main program logic
  * 
  * This allows us to only place code in main.c that
@@ -399,11 +399,12 @@ typedef struct alphaMesh {
 } alphaMesh;
 
 // engineRender is called to render our stuff
-void engineRender(int pWidth, int pHeight) {;
-  shaderMatrices matrices;
-  vec3 tmpvector;
-  float ratio, left, top;
-  dynarray * meshesWithAlpha = newDynArray(sizeof(alphaMesh));
+void engineRender(int pWidth, int pHeight) {
+  shaderMatrices  matrices;
+  vec3            tmpvector;
+  float           ratio, left, top;
+  int             i;
+  dynarray *      meshesWithAlpha = newDynArray(sizeof(alphaMesh));
 
   // calculate our sun position, we want to do this only once
   mat4ApplyToVec3(&sun.adjPosition,&sun.position, &view);
@@ -485,7 +486,7 @@ void engineRender(int pWidth, int pHeight) {;
   	glEnable(GL_BLEND);
   	glBlendEquation(GL_FUNC_ADD);
   	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    for (int i = 0; i < meshesWithAlpha->numEntries; i++) {
+    for (i = 0; i < meshesWithAlpha->numEntries; i++) {
       alphaMesh * aMesh = dynArrayDataAtIndex(meshesWithAlpha, i);
     
       mat4Copy(&matrices.model, &aMesh->model);
