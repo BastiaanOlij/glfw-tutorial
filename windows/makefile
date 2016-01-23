@@ -28,7 +28,7 @@ $(CONTENTSDIR):
 $(OBJECTDIR):
   mkdir $(OBJECTDIR)
   
-$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.2_win.lib ..\3rdparty\GL\glew32.lib
+$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.1.2_win.lib ..\3rdparty\GL\glew32.lib
   link $(LDFLAGS) /out:$@ $** $(WINLIBS)
 
 $(CONTENTSDIR)\glew32.dll: ..\3rdparty\GL\glew32.dll
