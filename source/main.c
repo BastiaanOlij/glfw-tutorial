@@ -24,15 +24,7 @@ GLFWwindow* window;
 
 // glfw version
 void error_callback_glfw(int error, const char* description) {
-#ifdef __APPLE__
-	// output to syslog
-	syslog(LOG_ALERT, "%i: %s", error, description);  
-#elif WIN32
-  // output to stderr
-  fprintf(stderr, "%i: %s", error, description);
-#else
-  // not sure what we're doing on other platforms yet
-#endif
+  errorlog(error, description);	
 };
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -74,7 +66,9 @@ int main(void) {
 #else
   window = glfwCreateWindow(640, 480, "GLFW Tutorial", NULL, NULL);
 #endif
-  if (window) {
+  if (window == NULL) {
+	  errorlog(-1, "Couldn''t construct GLFW window");
+  } else {
     GLenum err;
 	
     // make our context current

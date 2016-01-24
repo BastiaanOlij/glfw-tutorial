@@ -16,6 +16,8 @@ all: $(CONTENTSDIR) \
   $(CONTENTSDIR)\DroidSerif-Regular.ttf \
   $(CONTENTSDIR)\boxtexture.jpg \
   $(CONTENTSDIR)\EarthMap.jpg \
+  $(CONTENTSDIR)\tb_stars.png \
+  $(CONTENTSDIR)\tb_refmap.png \
   $(CONTENTSDIR)\tie-bomber.mtl \
   $(CONTENTSDIR)\tie-bomber.obj \
   $(CONTENTSDIR)\flatcolor.fs \
@@ -44,6 +46,12 @@ $(CONTENTSDIR)\boxtexture.jpg: ..\resources\boxtexture.jpg
 $(CONTENTSDIR)\EarthMap.jpg: ..\resources\EarthMap.jpg
   copy /B /Y $** $@
 
+$(CONTENTSDIR)\tb_stars.png: ..\resources\tb_stars.png
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\tb_refmap.png: ..\resources\tb_refmap.png
+  copy /B /Y $** $@
+  
 $(CONTENTSDIR)\tie-bomber.mtl: ..\resources\tie-bomber.mtl
   copy /B /Y $** $@
 
@@ -69,5 +77,5 @@ $(OBJECTDIR)\main.obj: ..\source\main.c ..\include\engine.h
   cl $(CFLAGS) /Fo$@ ..\source\main.c
 
 clean:
-  rmdir ..\build /s /q
+  rmdir $(CONTENTSDIR) /s /q
 	

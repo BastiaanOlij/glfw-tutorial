@@ -38,6 +38,7 @@ void errorlog(int error, const char* description, ...);
 void errorlog(int error, const char* description, ...) {
   va_list args;
   char fulldesc[2048];
+  FILE * log;
   
   va_start(args, description);
   vsprintf(fulldesc, description, args);
@@ -47,8 +48,12 @@ void errorlog(int error, const char* description, ...) {
 	// output to syslog
 	syslog(LOG_ALERT, "%i: %s", error, fulldesc);  
 #elif WIN32
-  // output to stderr
-  fprintf(stderr, "%i: %s", error, fulldesc);
+  // output to file
+  log = fopen("app.log", "w+");
+  if (log != NULL) {
+    fprintf(log, "%i: %s", error, fulldesc);
+	fclose(log);
+  };
 #else
   // not sure what we're doing on other platforms yet
 #endif
