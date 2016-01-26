@@ -47,12 +47,33 @@ bool keypressed_callback(int pKey) {
 };
 
 int main(void) {  
+  int           i, count;
+  GLFWmonitor** monitors;
+  
+  // Just mark that we've been loaded
+  errorlog(0, "GLFW Tutorial started");
+  
   // tell GLFW how to inform us of issues
   glfwSetErrorCallback(error_callback_glfw);
 
   // see if we can initialize GLFW
   if (!glfwInit()) {
     exit(EXIT_FAILURE);    
+  };
+  
+  // list all our monitors to our log
+  monitors = glfwGetMonitors(&count);
+  for (i = 0; i < count; i++) {
+    int             xpos, ypos;
+    int             m, modecount;
+    const GLFWvidmode *   modes = glfwGetVideoModes(monitors[i], &modecount);
+    
+    glfwGetMonitorPos(monitors[i], &xpos, &ypos);
+    errorlog(i, "Monitor: %s at (%i, %i)", glfwGetMonitorName(monitors[i]), xpos, ypos);
+    
+    for (m = 0; m < modecount; m++) {
+      errorlog(i, "- Supports %i, %i",modes[m].width,modes[m].height);
+    };
   };
   
   // make sure we're using OpenGL 3.2+
@@ -66,7 +87,7 @@ int main(void) {
   
   // create our window (full screen for now is a compiler toggle, we'll make something nicer another day)
 #ifdef GLFW_FULLSCREEN
-  window = glfwCreateWindow(1024, 768, "GLFW Tutorial", glfwGetPrimaryMonitor(), NULL);
+  window = glfwCreateWindow(1920, 1080, "GLFW Tutorial", glfwGetPrimaryMonitor(), NULL);
 #else
   window = glfwCreateWindow(640, 480, "GLFW Tutorial", NULL, NULL);
 #endif
