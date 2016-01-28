@@ -38,7 +38,7 @@ $(CONTENTSDIR)/Resources/%: ../Resources/%
 	cp -f $^ $@
 	@chmod 444 $@
   
-$(CONTENTSDIR)/MacOS/$(APPNAME): $(OBJECTS) ../3rdparty/GLFW/libglfw3.1.2_mac.a ../3rdparty/GL/libGLEW_mac.a
+$(CONTENTSDIR)/MacOS/$(APPNAME): $(OBJECTS) ../3rdparty/GLFW/libglfw3.1.2_mac.a ../3rdparty/GL/libGLEW_mac.a ../3rdparty/AntTweakBar/libAntTweakBar.a
 	$(CPP) $(LDFLAGS) -o $@  $^
 
 $(OBJECTDIR)/%.o: ../source/%.c ../include/*.h
