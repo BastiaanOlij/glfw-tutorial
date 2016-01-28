@@ -7,12 +7,13 @@ APPNAME = glfw-tutorial.exe
 OBJECTDIR = ..\build\Objects
 CONTENTSDIR = ..\build
 
-OBJECTS = $(OBJECTDIR)\main.obj $(OBJECTDIR)\engine.obj
+OBJECTS = $(OBJECTDIR)\main.obj $(OBJECTDIR)\setup.obj $(OBJECTDIR)\engine.obj
 
 all: $(CONTENTSDIR) \
   $(OBJECTDIR) \
   $(CONTENTSDIR)\$(APPNAME) \
   $(CONTENTSDIR)\glew32.dll \
+  $(CONTENTSDIR)\AntTweakBar.dll \
   $(CONTENTSDIR)\DroidSerif-Regular.ttf \
   $(CONTENTSDIR)\boxtexture.jpg \
   $(CONTENTSDIR)\EarthMap.jpg \
@@ -30,11 +31,14 @@ $(CONTENTSDIR):
 
 $(OBJECTDIR):
   mkdir $(OBJECTDIR)
-  
-$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.1.2_win.lib ..\3rdparty\GL\glew32.lib
+
+$(CONTENTSDIR)\$(APPNAME): $(OBJECTS) ..\3rdparty\GLFW\glfw3.1.2_win.lib ..\3rdparty\GL\glew32.lib ..\3rdparty\AntTweakBar\AntTweakBar.lib
   link $(LDFLAGS) /out:$@ $** $(WINLIBS)
 
 $(CONTENTSDIR)\glew32.dll: ..\3rdparty\GL\glew32.dll
+  copy /B /Y $** $@
+
+$(CONTENTSDIR)\AntTweakBar.dll: ..\3rdparty\AntTweakBar\AntTweakBar.dll
   copy /B /Y $** $@
 
 $(CONTENTSDIR)\DroidSerif-Regular.ttf: ..\resources\DroidSerif-Regular.ttf
@@ -73,7 +77,10 @@ $(CONTENTSDIR)\standard.vs: ..\resources\standard.vs
 $(OBJECTDIR)\engine.obj: ..\source\engine.c ..\include\engine.h
   cl $(CFLAGS) /Fo$@ ..\source\engine.c
 
-$(OBJECTDIR)\main.obj: ..\source\main.c ..\include\engine.h
+$(OBJECTDIR)\setup.obj: ..\source\setup.c ..\include\setup.h
+  cl $(CFLAGS) /Fo$@ ..\source\setup.c
+
+$(OBJECTDIR)\main.obj: ..\source\main.c ..\include\setup.h ..\include\engine.h
   cl $(CFLAGS) /Fo$@ ..\source\main.c
 
 clean:

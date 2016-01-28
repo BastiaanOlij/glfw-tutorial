@@ -21,6 +21,10 @@
 #ifdef __APPLE__
 #include <syslog.h>
 #endif
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,9 +53,9 @@ void errorlog(int error, const char* description, ...) {
 	syslog(LOG_ALERT, "%i: %s", error, fulldesc);  
 #elif WIN32
   // output to file
-  log = fopen("app.log", "w+");
+  log = fopen("app.log", "a+");
   if (log != NULL) {
-    fprintf(log, "%i: %s", error, fulldesc);
+    fprintf(log, "%i: %s\n", error, fulldesc);
 	fclose(log);
   };
 #else

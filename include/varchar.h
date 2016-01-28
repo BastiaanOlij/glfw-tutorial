@@ -17,19 +17,11 @@
 #ifndef varcharh
 #define varcharh
 
+// include support libraries
+#include <stdbool.h>
+
 #define VARCHAR_INCREASE  100
 #define VARCHAR_NOTFOUND  0xffffffff
-
-// We need bool, it seems to be define differently over platforms
-#ifndef bool
-typedef int bool;
-#endif
-#ifndef false
-#define false 0
-#endif
-#ifndef true
-#define true 1
-#endif
 
 typedef struct varchar {
   char *        text;                 // our text buffer

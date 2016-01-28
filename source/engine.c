@@ -1,4 +1,4 @@
-	/********************************************************
+/********************************************************
  * Engine is our container for our main program logic
  * 
  * This allows us to only place code in main.c that
@@ -412,9 +412,9 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
   mat4ApplyToVec3(&sun.adjPosition,&sun.position, &view);
         
   // enable and configure our backface culling
-	glEnable(GL_CULL_FACE);   // enable culling
+  glEnable(GL_CULL_FACE);   // enable culling
   glFrontFace(GL_CW);       // clockwise
-	glCullFace(GL_BACK);      // backface culling
+  glCullFace(GL_BACK);      // backface culling
   // enable our depth test
   glEnable(GL_DEPTH_TEST);
   // disable alpha blending  

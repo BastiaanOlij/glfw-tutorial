@@ -18,20 +18,16 @@
 #ifndef dynarrayh
 #define dynarrayh
 
+// include support libraries
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+
 #define DYNARRAY_NOENTRY      0xffffffff
 #define DYNARRAY_NOMEM        0xfffffffe
 #define DYNARRAY_EXPAND       100
-
-// We need bool, it seems to be define differently over platforms
-#ifndef bool
-typedef int bool;
-#endif
-#ifndef false
-#define false 0
-#endif
-#ifndef true
-#define true 1
-#endif
 
 #ifdef __cplusplus
 extern "C" {

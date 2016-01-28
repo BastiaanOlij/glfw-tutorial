@@ -13,19 +13,18 @@
 #define MATERIAL_IMPLEMENTATION
 #define MESH_IMPLEMENTATION
 
-// Uncomment to run full screen, we'll make this better some day
-// #define GLFW_FULLSCREEN
+// Include our setup handler
+#include "setup.h"
 
 // Include our engine
 #include "engine.h"
 
 // for now make our window global to make our key handling easier
 GLFWwindow* window;
-int stereo_mode = 1; // 0 is off, 1 is splitscreen, 2 = hardware (not yet tested)
 
 // glfw version
 void error_callback_glfw(int error, const char* description) {
-  errorlog(error, description);	
+  errorlog(error, description); 
 };
 
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -46,9 +45,8 @@ bool keypressed_callback(int pKey) {
   return glfwGetKey(window, pKey) == GLFW_PRESS;
 };
 
-int main(void) {  
-  int           i, count;
-  GLFWmonitor** monitors;
+int main(void) {
+  glfw_setup    info;
   
   // Just mark that we've been loaded
   errorlog(0, "GLFW Tutorial started");
@@ -61,19 +59,9 @@ int main(void) {
     exit(EXIT_FAILURE);    
   };
   
-  // list all our monitors to our log
-  monitors = glfwGetMonitors(&count);
-  for (i = 0; i < count; i++) {
-    int             xpos, ypos;
-    int             m, modecount;
-    const GLFWvidmode *   modes = glfwGetVideoModes(monitors[i], &modecount);
-    
-    glfwGetMonitorPos(monitors[i], &xpos, &ypos);
-    errorlog(i, "Monitor: %s at (%i, %i)", glfwGetMonitorName(monitors[i]), xpos, ypos);
-    
-    for (m = 0; m < modecount; m++) {
-      errorlog(i, "- Supports %i, %i",modes[m].width,modes[m].height);
-    };
+  if (!SetupGLFW(&info)) {
+    glfwTerminate();
+    exit(EXIT_FAILURE);
   };
   
   // make sure we're using OpenGL 3.2+
@@ -81,21 +69,27 @@ int main(void) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  if (stereo_mode==2) {
-    glfwWindowHint(GLFW_STEREO, GL_TRUE);    
+  if (info.monitor != NULL) {
+    glfwWindowHint(GLFW_RED_BITS, info.vidmode.redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, info.vidmode.greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, info.vidmode.blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, info.vidmode.refreshRate);
+    if (info.stereomode == 2) {
+      glfwWindowHint(GLFW_STEREO, GL_TRUE);    
+    };
+
+    errorlog(0, "Initializing fullscreen mode %i, %i - %i",info.vidmode.width, info.vidmode.height, info.stereomode);
+    window = glfwCreateWindow(info.vidmode.width, info.vidmode.height, "GLFW Tutorial", info.monitor, NULL);
+  } else {
+    errorlog(0, "Initializing windowed mode %i, %i - %i",info.vidmode.width, info.vidmode.height, info.stereomode);
+    window = glfwCreateWindow(info.vidmode.width, info.vidmode.height, "GLFW Tutorial", NULL, NULL);
   };
   
-  // create our window (full screen for now is a compiler toggle, we'll make something nicer another day)
-#ifdef GLFW_FULLSCREEN
-  window = glfwCreateWindow(1920, 1080, "GLFW Tutorial", glfwGetPrimaryMonitor(), NULL);
-#else
-  window = glfwCreateWindow(640, 480, "GLFW Tutorial", NULL, NULL);
-#endif
   if (window == NULL) {
-	  errorlog(-1, "Couldn''t construct GLFW window");
+    errorlog(-1, "Couldn''t construct GLFW window");
   } else {
     GLenum err;
-	
+  
     // make our context current
     glfwMakeContextCurrent(window);
  
@@ -130,7 +124,7 @@ int main(void) {
       
       ratio = (float) frameWidth / (float) frameHeight;
       
-      switch (stereo_mode) {
+      switch (info.stereomode) {
         case 1: {
           // clear our viewport
           glClearColor(0.1, 0.1, 0.1, 1.0);

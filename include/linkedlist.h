@@ -17,16 +17,8 @@
 #ifndef linkedlisth
 #define linkedlisth
 
-// We need bool, it seems to be define differently over platforms
-#ifndef bool
-typedef int bool;
-#endif
-#ifndef false
-#define false 0
-#endif
-#ifndef true
-#define true 1
-#endif
+// include support libraries
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

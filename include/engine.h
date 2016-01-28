@@ -17,7 +17,9 @@
 #include <GL/glew.h>
 
 // include these defines to let GLFW know we need OpenGL 3 support 
+#ifndef GLFW_INCLUDE_GL_3
 #define GLFW_INCLUDE_GL_3
+#endif /* !GLFW_INCLUDE_GL_3 */
 #include <GLFW/glfw3.h>
 
 // include some standard libraries

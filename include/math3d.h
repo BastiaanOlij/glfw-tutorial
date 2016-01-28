@@ -59,6 +59,7 @@
 #define math3dh
 
 // standard libraries we need...
+#include <stdbool.h>
 #include <math.h>
 
 #ifndef MATH3D_FLOAT
@@ -69,17 +70,6 @@
 // need to set this correctly!
 #define MATH3D_EPSILON 0.0000001
 #endif /* !MATH3D_EPSILON */
-
-// We need bool, it seems to be define differently over platforms
-#ifndef bool
-typedef int bool;
-#endif
-#ifndef false
-#define false 0
-#endif
-#ifndef true
-#define true 1
-#endif
 
 // we need PI...
 #ifndef PI
