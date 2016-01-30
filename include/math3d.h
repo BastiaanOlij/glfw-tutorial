@@ -52,6 +52,7 @@
  *
  * Revision history:
  * 0.1  07-03-2015  First version with basic functions
+ * 0.2  31-01-2016  Fixed inverse matrix function
  *
  ********************************************************/
 
@@ -122,6 +123,8 @@ MATH3D_FLOAT vec2Lenght(const vec2* pLengthOf);
 vec2* vec2Normalise(vec2 *pNormalise);
 vec2* vec2Add(vec2* pAddTo, const vec2* pAdd);
 vec2* vec2Sub(vec2* pSubFrom, const vec2* pSub);
+vec2* vec2Mult(vec2* pVec, const float pMult);
+vec2* vec2Div(vec2* pVec, const float pDiv);
 vec2* vec2Scale(vec2* pSet, const float pScale);
 
 // vec3 interface
@@ -133,6 +136,8 @@ MATH3D_FLOAT vec3Lenght(const vec3* pLengthOf);
 vec3* vec3Normalise(vec3 * pNormalise);
 vec3* vec3Add(vec3* pAddTo, const vec3* pAdd);
 vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub);
+vec3* vec3Mult(vec3* pVec, const float pMult);
+vec3* vec3Div(vec3* pVec, const float pDiv);
 vec3* vec3Scale(vec3* pSet, const float pScale);
 
 // vec4 interface
@@ -270,6 +275,24 @@ vec2* vec2Sub(vec2* pSubFrom, const vec2* pSub) {
   return pSubFrom;
 };
 
+// Multiply a vector with a constante
+vec2* vec2Mult(vec2* pVec, const float pMult) {
+  pVec->x = pVec->x * pMult;
+  pVec->y = pVec->y * pMult;
+  
+  return pVec;
+};
+
+// Divide a vector by a constante
+vec2* vec2Div(vec2* pVec, const float pDiv) {
+  if (pDiv != 0.0) {
+    pVec->x = pVec->x / pDiv;
+    pVec->y = pVec->y / pDiv;
+  };
+  
+  return pVec;  
+};
+
 // Scale a vector
 // vec2 vec;
 // vec2Set(&vec, 1.0, 2.0);
@@ -384,6 +407,26 @@ vec3* vec3Sub(vec3* pSubFrom, const vec3* pSub) {
   pSubFrom->z -= pSub->z;
   
   return pSubFrom;
+};
+
+// Multiply a vector with a constante
+vec3* vec3Mult(vec3* pVec, const float pMult) {
+  pVec->x = pVec->x * pMult;
+  pVec->y = pVec->y * pMult;
+  pVec->z = pVec->z * pMult;
+  
+  return pVec;
+};
+
+// Divide a vector by a constante
+vec3* vec3Div(vec3* pVec, const float pDiv) {
+  if (pDiv != 0.0) {
+    pVec->x = pVec->x / pDiv;
+    pVec->y = pVec->y / pDiv;
+    pVec->z = pVec->z / pDiv;    
+  };
+  
+  return pVec;  
 };
 
 // Scale a vector
@@ -802,7 +845,7 @@ mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix) {
   pInverse->m[2][0] =  pMatrix->m[1][0] * pMatrix->m[2][1] * pMatrix->m[3][3] - 
                        pMatrix->m[1][0] * pMatrix->m[2][3] * pMatrix->m[3][1] - 
                        pMatrix->m[2][0] * pMatrix->m[1][1] * pMatrix->m[3][3] + 
-                       pMatrix->m[2][0] * pMatrix->m[1][2] * pMatrix->m[3][1] + 
+                       pMatrix->m[2][0] * pMatrix->m[1][3] * pMatrix->m[3][1] + 
                        pMatrix->m[3][0] * pMatrix->m[1][1] * pMatrix->m[2][3] - 
                        pMatrix->m[3][0] * pMatrix->m[1][3] * pMatrix->m[2][1];
 
@@ -842,7 +885,7 @@ mat4* mat4Inverse(mat4* pInverse, const mat4* pMatrix) {
                        pMatrix->m[3][0] * pMatrix->m[0][2] * pMatrix->m[2][1];
 
   pInverse->m[0][2] =  pMatrix->m[0][1] * pMatrix->m[1][2] * pMatrix->m[3][3] - 
-                       pMatrix->m[0][1] * pMatrix->m[1][2] * pMatrix->m[3][2] - 
+                       pMatrix->m[0][1] * pMatrix->m[1][3] * pMatrix->m[3][2] - 
                        pMatrix->m[1][1] * pMatrix->m[0][2] * pMatrix->m[3][3] + 
                        pMatrix->m[1][1] * pMatrix->m[0][3] * pMatrix->m[3][2] + 
                        pMatrix->m[3][1] * pMatrix->m[0][2] * pMatrix->m[1][3] - 
