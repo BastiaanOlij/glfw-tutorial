@@ -44,6 +44,7 @@
 // #include "tilemap.h"
 // #include "spritesheet.h"
 #include "mesh3d.h"
+#include "meshnode.h"
 
 #include "joysticks.h"
 

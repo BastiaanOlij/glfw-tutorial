@@ -16,8 +16,14 @@
  * Revision history:
  * 0.1  12-01-2016  First version with basic functions
  * 0.2  16-01-2016  Adding loading wavefront obj files
+ * 0.3  08-02-2016  Added automatic load into GL memory
+ *                  and passing a matrix to adjust loading
+ *                  our wavefront file
  *
  ********************************************************/
+
+#ifndef mesh3dh
+#define mesh3dh
 
 #include "errorlog.h"
 #include "linkedlist.h"
@@ -25,9 +31,6 @@
 #include "varchar.h"
 #include "math3d.h"
 #include "material.h"
-
-#ifndef mesh3dh
-#define mesh3dh
 
 #define GL_UNDEF_OBJ      0xffffffff
 #define BUFFER_EXPAND     100
@@ -44,10 +47,12 @@ typedef struct mesh3d {
   unsigned int  retainCount;          // retain count for this object
   bool          visible;              // if true we render this
   char          name[50];             // name for this mesh 
+  bool          canRender;            // if true we can render this
+  bool          isLoaded;             // if true this is loaded into our GL memory
   
   // material to use
   material *    material;             // our material
-  
+
   // mesh data
   dynarray *    vertices;             // our vertices
   dynarray *    indices;              // our indices
@@ -74,13 +79,14 @@ GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex);
 void meshFlipNormals(mesh3d * pMesh);
 bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC);
 void meshFlipFaces(mesh3d * pMesh);
+void meshCenter(mesh3d *pMesh);
 bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers);
 bool meshRender(mesh3d * pMesh);
 
 bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB);
 bool meshMakeSphere(mesh3d * pMesh, GLfloat pRadius);
 
-bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials, bool pFreeBuffers);
+bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials, mat4 * pAdjust);
 
 #ifdef __cplusplus
 };
@@ -97,6 +103,8 @@ void meshInit(mesh3d * pMesh, GLuint pInitialVertices, GLuint pInitialIndices) {
 //  errorlog(0, "New mesh (%p)", pMesh);
   
   pMesh->retainCount = 1;
+  pMesh->canRender = true;
+  pMesh->isLoaded = false;
   pMesh->visible = true;
   strcpy(pMesh->name, "New");
   
@@ -236,6 +244,7 @@ GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex) {
   };
 
   dynArrayPush(pMesh->vertices, (void *) pVertex);
+  pMesh->isLoaded = false;
   
   return pMesh->vertices->numEntries - 1;
 };
@@ -271,6 +280,7 @@ bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC) {
   dynArrayPush(pMesh->indices, &pA);
   dynArrayPush(pMesh->indices, &pB);
   dynArrayPush(pMesh->indices, &pC);
+  pMesh->isLoaded = false;
   
   return true;
 };
@@ -292,6 +302,37 @@ void meshFlipFaces(mesh3d * pMesh){
   };
 };
 
+// centers our mesh and adjust our model matrix accordingly
+void meshCenter(mesh3d *pMesh) {
+  if (pMesh == NULL) {
+    // nothing much we can do here
+  } else if (pMesh->vertices == NULL) {
+    // can't do anything here
+  } else if (pMesh->vertices->numEntries != 0) {
+    vec3    center;
+    int     i;
+
+    // calculate our center
+    vec3Set(&center, 0.0, 0.0, 0.0);
+    for (i = 0; i < pMesh->vertices->numEntries; i++) {
+      vec3 * vertice = dynArrayDataAtIndex(pMesh->vertices, i);
+
+      vec3Add(&center, vertice);
+    };
+    vec3Div(&center, (float) pMesh->vertices->numEntries);
+
+    // center our object
+    for (i = 0; i < pMesh->vertices->numEntries; i++) {
+      vec3 * vertice = dynArrayDataAtIndex(pMesh->vertices, i);
+
+      vec3Sub(vertice, &center);
+    };
+
+    // adjust our matrix
+    mat4Translate(&pMesh->defModel, &center);
+  };
+};
+
 // copies our vertex and index data to our GPU, creates/overwrites buffer objects as needed
 // if pFreeBuffers is set to true our source data is freed up
 // returns false on failure
@@ -302,10 +343,12 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
   
   // do we have data to load?
   if ((pMesh->vertices == NULL) || (pMesh->indices==NULL)) {
-    errorlog(3, "No data to copy to GL");    
+    errorlog(3, "No data to copy to GL");
+    pMesh->canRender = false;
     return false;
   } else if ((pMesh->vertices->numEntries == 0) || (pMesh->indices->numEntries == 0)) {
-    errorlog(3, "No data to copy to GL");    
+    errorlog(3, "No data to copy to GL");
+    pMesh->canRender = false;
     return false;    
   };
   
@@ -354,6 +397,8 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
     pMesh->indices = NULL;
   };
   
+  pMesh->canRender = true;
+  pMesh->isLoaded = true;
   return true;
 };
 
@@ -361,13 +406,22 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
 bool meshRender(mesh3d * pMesh) {
   if (pMesh == NULL) {
     return false;
+  } else if (pMesh->canRender == false) {
+    // set this to false before, no need to double up on checking
+    return false;
+  };
+  
+  if (pMesh->isLoaded == false) {
+    meshCopyToGL(pMesh, true); // if we want to keep our buffers, call this before we start rendering!
   };
   
   if (pMesh->VAO == GL_UNDEF_OBJ) {
-    errorlog(4, "No VAO to render");    
+    errorlog(4, "No VAO to render");
+    pMesh->canRender = false; // prevent this error from appearing every frame  
     return false;
   } else if (pMesh->loadedIndices == 0) {
     errorlog(5, "No data to render");    
+    pMesh->canRender = false; // prevent this error from appearing every frame  
     return false;
   };
   
@@ -692,7 +746,7 @@ unsigned int objFindIndex(mesh3d * pMesh, varchar * pText, dynarray * pObjVertic
 // parse data loaded from a wavefront .obj file
 // note that loading the dpDataata from disk should be implemented separately
 // https://en.wikipedia.org/wiki/Wavefront_.obj_file
-bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials, bool pFreeBuffers) {
+bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials, mat4 * pAdjust) {
   bool          finished = false;
   unsigned int  pos = 0;
   unsigned int  start = 0;
@@ -703,6 +757,10 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
   dynarray *    coords = newDynArray(sizeof(vec2));
   mesh3d *      mesh = NULL;
   dynarray *    objVertices = NULL;
+  mat3          normalMat;
+  
+  // this will give issues if a non uniform scale is used...
+  mat3FromMat4(&normalMat, pAdjust);
   
   while (!finished) {
     if ((pData[pos] == 13) || (pData[pos] == 10) || (pData[pos] == 0)) {
@@ -729,16 +787,21 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 // load this material library, we're ignoring this, the material library should already be loaded...
               } else if (varcharCmp(what, "v") == 0) {
                 // load a vertex
-                vec3 vertex;
+                vec3 vertex, adjvertex;
                 sscanf(line->text + 2, "%f %f %f", &vertex.x, &vertex.y, &vertex.z);
+                
+                mat4ApplyToVec3(&adjvertex, &vertex, pAdjust);
               
-                dynArrayPush(positions, &vertex);
+                dynArrayPush(positions, &adjvertex);
               } else if (varcharCmp(what, "vn") == 0) {
                 // load a normal
-                vec3 vertex;
+                vec3 vertex, adjvertex;
                 sscanf(line->text + 2, "%f %f %f", &vertex.x, &vertex.y, &vertex.z);
               
-                dynArrayPush(normals, &vertex);
+                mat3ApplyToVec3(&adjvertex, &vertex, &normalMat);
+                vec3Normalise(&adjvertex);
+              
+                dynArrayPush(normals, &adjvertex);
               } else if (varcharCmp(what, "vt") == 0) {
                 // load a texture coordinate
                 vec2 vertex;
@@ -748,7 +811,23 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
               } else if (varcharCmp(what, "o") == 0) {
                 // new object
                 
-                // not yet supported
+                // first round of our old...
+                if (objVertices != NULL) {
+                  dynArrayFree(objVertices);
+                  objVertices = NULL;
+                };
+                if (mesh != NULL) {
+                  llistAddTo(pAddToMeshList, mesh);
+                  meshRelease(mesh);
+                  mesh = NULL;
+                };
+              
+                // our new mesh
+                mesh = newMesh(0, 0);
+                strcpy(mesh->name, line->text + 2);
+              
+                // also need a new vertices index array
+                objVertices = newDynArray(sizeof(objVertexIdx));
               } else if (varcharCmp(what, "g") == 0) {
                 // new group
               
@@ -759,7 +838,6 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 };
                 if (mesh != NULL) {
                   llistAddTo(pAddToMeshList, mesh);
-                  meshCopyToGL(mesh, pFreeBuffers);
                   meshRelease(mesh);
                   mesh = NULL;
                 };
@@ -876,7 +954,6 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
 
   if (mesh != NULL) {
     llistAddTo(pAddToMeshList, mesh);
-    meshCopyToGL(mesh, pFreeBuffers);
     meshRelease(mesh);
     mesh = NULL;
   };

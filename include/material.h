@@ -192,7 +192,7 @@ void matSetReflectMap(material * pMat, texturemap * pTMap) {
 };
 
 void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
-  mat4  modelView, modelViewInverse, mvp;
+  mat4  modelView, modelViewInverse, viewInverse, mvp;
   int   texture = 0;
   
   if (pMat->shader == NULL) {
@@ -208,7 +208,8 @@ void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   // setup camera info
   
   if (pMat->shader->eyePosId >= 0) {
-    glUniform3f(pMat->shader->eyePosId, -pMatrices->view.m[3][0], -pMatrices->view.m[3][1], -pMatrices->view.m[3][2]);       
+    mat4Inverse(&viewInverse, &pMatrices->view);
+    glUniform3f(pMat->shader->eyePosId, viewInverse.m[3][0], viewInverse.m[3][1], viewInverse.m[3][2]);       
   };
   
   // setup our matrices

@@ -17,7 +17,8 @@ EngineKeyPressed engineKeyPressedCallback = NULL;
 
 // object info
 llist *       materials = NULL;
-llist *       meshes = NULL;
+meshNode *    scene = NULL;
+meshNode *    tieNodes[10] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
 // and some globals for our fonts
 FONScontext * fs = NULL;
@@ -35,8 +36,8 @@ lightSource   sun;
 
 // our camera
 mat4          view;
-vec3          camera_eye = { -200.0, 20.0, 500.0 };
-vec3          camera_lookat =  { -300.0, 100.0, -50.0 };
+vec3          camera_eye = { 0.0, 0.0, 1300.0 };
+vec3          camera_lookat =  { 0.0, 0.0, 0.0 };
 
 // and some runtime variables.
 double        frames = 0.0f;
@@ -242,13 +243,38 @@ void unload_shaders() {
 //////////////////////////////////////////////////////////
 // Objects
 
-void load_objects() {
-  char *        text;
-  vec3          tmpvector;
+void addSkyboxToScene() {
   mesh3d *      mesh;
   material *    mat;
-  llistNode *   node;
+  meshNode *    mnode;
+
+  mat = newMaterial("skybox");                // create a material for our skybox
+  mat->shader = &skyboxShader;                // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
+  matSetDiffuseMap(mat, getTextureMapByFileName("skybox.png", GL_LINEAR, GL_CLAMP_TO_EDGE)); // load our texture map (courtesy of http://rbwhitaker.wikidot.com/texture-library)
+  mesh = newMesh(24, 36);                     // init our cube with enough space for our buffers
+  strcpy(mesh->name,"skybox");                // set name to cube
+  meshSetMaterial(mesh, mat);                 // assign our material
+  meshMakeCube(mesh, 10000.0, 10000.0, 10000.0, true);  // create our cube, we make it as large as possible
+  meshFlipFaces(mesh);                        // turn the mesh inside out
+  meshCopyToGL(mesh, true);                   // copy our cube data to the GPU
+
+  mnode = newMeshNode("skybox");
+  meshNodeSetMesh(mnode, mesh);
+  meshNodeAddChild(scene, mnode);
+
+  // we can release these seeing its now all contained within our scene
+  meshNodeRelease(mnode);
+  meshRelease(mesh);
+  matRelease(mat);
+};
+
+void load_objects() {
   char          modelPath[1024];
+  char *        text;
+  vec3          tmpvector;
+  mat4          adjust;
+  material *    mat;
+  llistNode *   lnode;
 
   // init some paths
   #ifdef __APPLE__
@@ -278,9 +304,9 @@ void load_objects() {
   };    
 
   // assign shaders to our materials
-  node = materials->first;
-  while (node != NULL) {
-    mat = (material * ) node->data;
+  lnode = materials->first;
+  while (lnode != NULL) {
+    mat = (material * ) lnode->data;
 
     if (mat->reflectMap != NULL) {  
       mat->shader = &reflectShader;
@@ -290,61 +316,97 @@ void load_objects() {
       mat->shader = &colorShader;
     };
     
-    node = node->next;
+    lnode = lnode->next;
   };
- 
-  // create a retainer for meshes
-  meshes = newMeshList();
-  if (meshes != NULL) {
-    llistNode * node;
-    
-    /*
-    mat = newMaterial("sphere");                // create a material for our sphere
-    mat->shader = &texturedShader;              // use our texture shader
-    matSetDiffuseMap(mat, getTextureMapByFileName("EarthMap.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE)); // load our texture map
-    mesh = newMesh(10585, 62208);               // init our sphere with default space for our buffers
-    strcpy(mesh->name,"sphere");                // set name to sphere
-    meshSetMaterial(mesh, mat);                 // assign our material
-    matRelease(mat);                            // and release it, our mesh now owns it
-    meshMakeSphere(mesh, 100.0);                // create our sphere
-    mat4Translate(&mesh->defModel, vec3Set(&tmpvector, 100.0, 0.0, 0.0)); // position it
-    meshCopyToGL(mesh, true);                   // copy our sphere data to the GPU
-    llistAddTo(meshes, mesh);                   // add it to our list
-    meshRelease(mesh);                          // and release it, our list now owns it
-    */
 
-    // load our obj file
-    text = loadFile(modelPath,"tie-bomber.obj");
+  // create our root node
+  scene = newMeshNode("scene");
+  if (scene != NULL) {
+    // load our tie-bomber obj file
+    text = loadFile(modelPath, "tie-bomber.obj");
     if (text != NULL) {
-      meshParseObj(text, meshes, materials, true);
-      
+      llist *       meshes = newMeshList();
+
+      // setup our adjustment matrix to center our object
+      mat4Identity(&adjust);
+      mat4Translate(&adjust, vec3Set(&tmpvector, 250.0, -100.0, 100.0));
+
+      // parse our object file
+      meshParseObj(text, meshes, materials, &adjust);
+
+      // add our tie bomber mesh to our containing node
+      tieNodes[0] = newMeshNode("tie-bomber-0");
+      meshNodeAddChildren(tieNodes[0], meshes);
+
+      // and add it to our scene, note that we could free up our tie-bomber node here as it is references by our scene
+      // but we keep it so we can interact with them.
+      meshNodeAddChild(scene, tieNodes[0]);
+
+      // and free up what we no longer need
+      llistFree(meshes);
       free(text);
     };
 
+    // instance our tie bomber a few times
+    tieNodes[1] = newCopyMeshNode("tie-bomber-1", tieNodes[0], false);
+    mat4Translate(&tieNodes[1]->position, vec3Set(&tmpvector, -400.0, 0.0, -100.0));
+    meshNodeAddChild(scene, tieNodes[1]);
+
+    tieNodes[2] = newCopyMeshNode("tie-bomber-2", tieNodes[0], false);
+    mat4Translate(&tieNodes[2]->position, vec3Set(&tmpvector, 400.0, 0.0, -100.0));
+    meshNodeAddChild(scene, tieNodes[2]);
+
+    tieNodes[3] = newCopyMeshNode("tie-bomber-3", tieNodes[0], false);
+    mat4Translate(&tieNodes[3]->position, vec3Set(&tmpvector, 0.0, 0.0, 500.0));
+    meshNodeAddChild(scene, tieNodes[3]);
+
+    tieNodes[4] = newCopyMeshNode("tie-bomber-4", tieNodes[0], false);
+    mat4Translate(&tieNodes[4]->position, vec3Set(&tmpvector, -600.0, 0.0, -400.0));
+    meshNodeAddChild(scene, tieNodes[4]);
+
+    tieNodes[5] = newCopyMeshNode("tie-bomber-5", tieNodes[0], false);
+    mat4Translate(&tieNodes[5]->position, vec3Set(&tmpvector, 600.0, 0.0, -400.0));
+    meshNodeAddChild(scene, tieNodes[5]);
+
+    tieNodes[6] = newCopyMeshNode("tie-bomber-6", tieNodes[0], false);
+    mat4Translate(&tieNodes[6]->position, vec3Set(&tmpvector, 0.0, 0.0, -500.0));
+    meshNodeAddChild(scene, tieNodes[6]);
+
+    tieNodes[7] = newCopyMeshNode("tie-bomber-7", tieNodes[0], false);
+    mat4Translate(&tieNodes[7]->position, vec3Set(&tmpvector, -800.0, 0.0, -800.0));
+    meshNodeAddChild(scene, tieNodes[7]);
+
+    tieNodes[8] = newCopyMeshNode("tie-bomber-8", tieNodes[0], false);
+    mat4Translate(&tieNodes[8]->position, vec3Set(&tmpvector, 800.0, 0.0, -800.0));
+    meshNodeAddChild(scene, tieNodes[8]);
+
+    tieNodes[9] = newCopyMeshNode("tie-bomber-9", tieNodes[0], false);
+    mat4Translate(&tieNodes[9]->position, vec3Set(&tmpvector, 0.0, 0.0, -1000.0));
+    meshNodeAddChild(scene, tieNodes[9]);
+
     // add the skybox last so it renders at the end
-    mat = newMaterial("skybox");                // create a material for our skybox
-    mat->shader = &skyboxShader;                 // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
-    matSetDiffuseMap(mat, getTextureMapByFileName("skybox.png", GL_LINEAR, GL_CLAMP_TO_EDGE)); // load our texture map (courtesy of http://rbwhitaker.wikidot.com/texture-library)
-    mesh = newMesh(24, 36);                     // init our cube with enough space for our buffers
-    strcpy(mesh->name,"skybox");                // set name to cube
-    meshSetMaterial(mesh, mat);                 // assign our material
-    matRelease(mat);                            // and release it, our mesh now owns it
-    meshMakeCube(mesh, 10000.0, 10000.0, 10000.0, true);  // create our cube, we make it as large as possible
-    meshFlipFaces(mesh);                        // turn the mesh inside out
-    meshCopyToGL(mesh, true);                   // copy our cube data to the GPU
-    llistAddTo(meshes, mesh);                   // add it to our list
-    meshRelease(mesh);                          // and release it, our list now owns it    
-  };
+    addSkyboxToScene();
+  }; 
 };
 
 void unload_objects() {
+  int i;
+
   // free our object data
   errorlog(0, "Unloading objects...");
   tmapReleaseCachedTextureMaps();
 
-  if (meshes != NULL) {
-    llistFree(meshes);
-    meshes = NULL;
+  // release our tie-bomber nodes
+  for (i = 0; i < 10; i++) {
+    if (tieNodes[i] != NULL) {
+      meshNodeRelease(tieNodes[i]);
+      tieNodes[i] = NULL;
+    };
+  };
+
+  if (scene != NULL) {
+    meshNodeRelease(scene);
+    scene = NULL;
   };
   
   if (materials != NULL) {
@@ -466,13 +528,6 @@ void engineUpdate(double pSecondsPassed) {
   };
 };
 
-// structure for storing info about transparent meshes that we render later on
-typedef struct alphaMesh {
-  mesh3d *  mesh;
-  mat4      model;
-  GLfloat   z;
-} alphaMesh;
-
 // engineRender is called to render our stuff
 // pWidth and pHeight define the size of our drawing buffer
 // pMode is 0 => mono, 1 => left eye, 2 => right eye
@@ -481,7 +536,6 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
   vec3            tmpvector;
   float           left, top;
   int             i;
-  dynarray *      meshesWithAlpha = newDynArray(sizeof(alphaMesh));
 
   // calculate our sun position, we want to do this only once
   mat4ApplyToVec3(&sun.adjPosition,&sun.position, &view);
@@ -495,83 +549,19 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
   // disable alpha blending  
   glDisable(GL_BLEND);
 
-  // set our model view projection matrix
-
   // init our projection matrix, we use a 3D projection matrix now
   mat4Identity(&matrices.projection);
-//  mat4Projection(&matrices.projection, 45.0, pRatio, 1.0, 10000.0);
   // distance between eyes is on average 6.5 cm, this should be setable
   mat4Stereo(&matrices.projection, 45.0, pRatio, 1.0, 10000.0, 6.5, 200.0, pMode);
   
   // copy our view matrix into our state
   mat4Copy(&matrices.view, &view);
   
-  if (meshes != NULL) {
-    int count = 0;
-    llistNode * node = meshes->first;
-    while (node != NULL) {
-      mesh3d * mesh = (mesh3d *) node->data;
-      if (mesh == NULL) {
-        // skip
-      } else if (!mesh->visible) {
-        // skip
-      } else {
-        bool doRender = true;
-        // set our model matrix, this calculation will be more complex in due time
-        mat4Copy(&matrices.model, &mesh->defModel);
-
-        // we now select our shader through our material
-        if (mesh->material == NULL) {
-          matSelectProgram((material *) materials->first->data, &matrices, &sun);
-        } else if (mesh->material->alpha != 1.0) {
-          // postpone
-          alphaMesh aMesh;
-          GLfloat z = 0; // we should calculate this by taking our modelview matrix and taking our Z offset
-        
-          // copy our mesh info
-          aMesh.mesh = mesh;
-          mat4Copy(&aMesh.model, &matrices.model);
-          aMesh.z = z;
-        
-          // and push it...
-          dynArrayPush(meshesWithAlpha, &aMesh); // this copies our structure
-          doRender = false; // we're postponing...
-        } else {
-          matSelectProgram(mesh->material, &matrices, &sun);
-        };
-
-        if (doRender) {
-          // and render it, if we fail we won't render it again
-          mesh->visible = meshRender(mesh);          
-        };
-      };
-    
-      node = node->next;
-      count++;
-    };
+  if (scene != NULL) {
+    // and render our scene
+    meshNodeRender(scene, matrices, (material *) materials->first->data, &sun);    
   };
   
-  // now render our alpha meshes
-  if (meshesWithAlpha->numEntries > 0) {
-    // we should sort meshesWithAlpha by Z
-  
-    // we blend our colors here...
-  	glEnable(GL_BLEND);
-  	glBlendEquation(GL_FUNC_ADD);
-  	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    for (i = 0; i < meshesWithAlpha->numEntries; i++) {
-      alphaMesh * aMesh = dynArrayDataAtIndex(meshesWithAlpha, i);
-    
-      mat4Copy(&matrices.model, &aMesh->model);
-      matSelectProgram(aMesh->mesh->material, &matrices, &sun);
-
-      aMesh->mesh->visible = meshRender(aMesh->mesh);
-    };    
-  };
-  
-  // and free
-  dynArrayFree(meshesWithAlpha);
-      
   // unset stuff
   glBindVertexArray(0);
   glUseProgram(0);
@@ -599,8 +589,6 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
 
     // what text shall we draw?
     sprintf(info,"FPS: %0.1f, use wasd to move the camera", fps);
-        
-    // and draw some text
     fonsDrawText(fs, -pRatio * 250.0f, 230.0f, info, NULL);
     
     // lets display some info about our joystick:

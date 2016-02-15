@@ -777,7 +777,7 @@ vec3* mat4ApplyToVec3(vec3* pSet, const vec3* pApplyTo, const mat4* pMatrix) {
   vec4 vecA, vecB;
 
   // turn it into a vec4 before we can apply our matrix
-  vec4FromVec3(&vecA, pApplyTo, 0.0);
+  vec4FromVec3(&vecA, pApplyTo, 1.0);
   mat4ApplyToVec4(&vecB, &vecA, pMatrix);
 
   // now get our vec3 after dividing by w
