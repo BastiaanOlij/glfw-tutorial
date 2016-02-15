@@ -1,0 +1,120 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# File Created: 27.12.2015 19:49:02
+
+# Downloaded from: http://tf3dm.com/3d-model/tie-bomber-83828.html
+# Glenn Campbell - http://www.ideacape.byethost32.com
+# Design copyright is held by Disney/LucasFilm, use is limited to personal projects only.
+
+newmtl BLACK_MATTE
+	Ns 5.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.0000 0.0000 0.0000
+	Kd 0.0078 0.0078 0.0078
+	Ks 0.2400 0.2400 0.2400
+	Ke 0.0000 0.0000 0.0000
+
+newmtl TIE_COLOR
+	Ns 2.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 1.0000 1.0000 1.0000
+	Kd 0.5059 0.6235 0.8314
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+
+newmtl TIE_TRIM
+	Ns 2.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.0000 0.0000 0.0000
+	Kd 0.3961 0.4706 0.4980
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+	map_refl tb_refmap.png
+
+newmtl GLASS
+	Ns 58.0000
+	Ni 1.5000
+	d 0.7500
+#	Tr 0.7100
+#	Tf 0.2900 0.2900 0.2900 
+	illum 2
+	Ka 0.0510 0.0510 0.0510
+ 	Kd 0.0510 0.0510 0.0510
+	Ks 0.9500 0.9500 0.9500
+	Ke 0.0000 0.0000 0.0000
+ 	map_refl tb_stars.png
+
+newmtl 01___Default2
+	Ns 47.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.6118 0.6745 0.7098
+	Kd 0.6118 0.6745 0.7098
+	Ks 0.3870 0.3870 0.3870
+	Ke 0.0000 0.0000 0.0000
+	map_refl tb_stars.png
+
+newmtl 01___Default
+	Ns 47.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.4471 0.5569 0.6039
+	Kd 0.4471 0.5569 0.6039
+	Ks 0.3870 0.3870 0.3870
+	Ke 0.0000 0.0000 0.0000
+	map_refl tb_stars.png
+
+newmtl 01___Default3
+	Ns 47.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.6549 0.7412 0.7804
+	Kd 0.6549 0.7412 0.7804
+	Ks 0.3870 0.3870 0.3870
+	Ke 0.0000 0.0000 0.0000
+	map_refl tb_stars.png
+
+newmtl TIE_ION_RED
+	Ns 0.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.8510 0.0000 0.0000
+	Kd 0.8510 0.0000 0.0000
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.8510 0.0000 0.0000
+
+newmtl CHROME_GIFMAP
+	Ns 66.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000 
+	illum 2
+	Ka 0.0039 0.0039 0.0039
+	Kd 1.0000 1.0000 1.0000
+	Ks 0.8696 0.8696 0.8800
+	Ke 0.0000 0.0000 0.0000
+	map_refl tb_refmap.png
