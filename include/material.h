@@ -24,7 +24,7 @@
 #define materialh
 
 // our libraries we need
-#include "errorlog.h"
+#include "system.h"
 #include "math3d.h"
 #include "shaders.h"
 #include "texturemap.h"
@@ -34,7 +34,7 @@ typedef struct material {
   unsigned int      retainCount;      // retain count for this object
   char              name[50];         // name of our material
   
-  shaderStdInfo *   shader;           // shader to use for this material
+  shaderInfo *      matShader;        // shader to use for this material
   
   GLfloat           alpha;            // alpha for our material
   vec3              matColor;         // diffuse color for this material
@@ -54,6 +54,7 @@ llist * newMatList(void);
 void matRetain(material * pMat);
 void matRelease(material * pMat);
 material * getMatByName(llist * pMatList, char * pName);
+void matSetShader(material * pMat, shaderInfo * pShader);
 void matSetDiffuseMap(material * pMat, texturemap * pTMap);
 void matSetReflectMap(material * pMat, texturemap * pTMap);
 void matSetBumpMap(material * pMat, texturemap * pTMap);
@@ -74,7 +75,7 @@ material * newMaterial(char * pName) {
   if (newMat != NULL) {
     newMat->retainCount = 1;
     strcpy(newMat->name, pName);
-    newMat->shader = NULL;
+    newMat->matShader = NULL;
     newMat->alpha = 1.0;
     vec3Set(&newMat->matColor, 1.0, 1.0, 1.0);
     vec3Set(&newMat->matSpecColor, 1.0, 1.0, 1.0);
@@ -120,6 +121,9 @@ void matRelease(material * pMat) {
     matSetDiffuseMap(pMat, NULL);
     matSetReflectMap(pMat, NULL);
     matSetBumpMap(pMat, NULL);
+
+    // release shader
+    matSetShader(pMat, NULL);
     
     // and free...
     free(pMat);
@@ -148,6 +152,29 @@ material * getMatByName(llist * pMatList, char * pName) {
   
   errorlog(-1,"Couldn't find material %s", pName);
   return NULL;
+};
+
+// assign a different shader to our material
+void matSetShader(material * pMat, shaderInfo * pShader) {
+  if (pMat == NULL) {
+    return;
+  };
+
+  // already set? nothing to do!
+  if (pMat->matShader == pShader) {
+    return;
+  };
+
+  // out with the old...
+  if (pMat->matShader != NULL) {
+     shaderRelease(pMat->matShader);
+  };
+
+  // in with the new
+  pMat->matShader = pShader;
+  if (pMat->matShader != NULL) {
+     shaderRetain(pMat->matShader);
+  };
 };
 
 // assign a diffuse map to our material
@@ -220,114 +247,114 @@ void matSetBumpMap(material * pMat, texturemap * pTMap) {
 void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
   int     texture = 0;
   
-  if (pMat->shader == NULL) {
+  if (pMat->matShader == NULL) {
     errorlog(-1, "No shader setup for this material!");
     return;
-  } else if (pMat->shader->program == NO_SHADER) {
+  } else if (pMat->matShader->program == NO_SHADER) {
     errorlog(-1, "No shader compiled for this material!");
     return;
   };
 
-  glUseProgram(pMat->shader->program);
+  glUseProgram(pMat->matShader->program);
   
   // setup camera info
   
-  if (pMat->shader->eyePosId >= 0) {
+  if (pMat->matShader->eyePosId >= 0) {
     vec3    tmpvector;
     shdMatGetEyePos(pMatrices, &tmpvector);
-    glUniform3f(pMat->shader->eyePosId, tmpvector.x, tmpvector.y, tmpvector.z);       
+    glUniform3f(pMat->matShader->eyePosId, tmpvector.x, tmpvector.y, tmpvector.z);       
   };
   
   // setup our matrices
   
-  if (pMat->shader->projectionMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->shader->projectionMatrixId, 1, false, (const GLfloat *) pMatrices->projection.m);
+  if (pMat->matShader->projectionMatrixId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->projectionMatrixId, 1, false, (const GLfloat *) pMatrices->projection.m);
   };
 
-  if (pMat->shader->viewMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->shader->viewMatrixId, 1, false, (const GLfloat *) pMatrices->view.m);
+  if (pMat->matShader->viewMatrixId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->viewMatrixId, 1, false, (const GLfloat *) pMatrices->view.m);
   };
 
-  if (pMat->shader->modelMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->shader->modelMatrixId, 1, false, (const GLfloat *) pMatrices->model.m);
+  if (pMat->matShader->modelMatrixId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->modelMatrixId, 1, false, (const GLfloat *) pMatrices->model.m);
   };
   
-  if (pMat->shader->modelViewMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->shader->modelViewMatrixId, 1, false, (const GLfloat *) shdMatGetModelView(pMatrices)->m);
+  if (pMat->matShader->modelViewMatrixId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->modelViewMatrixId, 1, false, (const GLfloat *) shdMatGetModelView(pMatrices)->m);
   };
 
   // calculate the inverse of our model-view
-  if (pMat->shader->modelViewInverseId >= 0) {
-    glUniformMatrix4fv(pMat->shader->modelViewInverseId, 1, false, (const GLfloat *) shdMatGetInvModelView(pMatrices)->m);
+  if (pMat->matShader->modelViewInverseId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->modelViewInverseId, 1, false, (const GLfloat *) shdMatGetInvModelView(pMatrices)->m);
   };
   
   // our normal matrix taken from our model matrix
-  if (pMat->shader->normalMatrixId >= 0) {
-    glUniformMatrix3fv(pMat->shader->normalMatrixId, 1, false, (const GLfloat *) shdMatGetNormal(pMatrices)->m);
+  if (pMat->matShader->normalMatrixId >= 0) {
+    glUniformMatrix3fv(pMat->matShader->normalMatrixId, 1, false, (const GLfloat *) shdMatGetNormal(pMatrices)->m);
   };
 
   // our normal matrix taken from our modelView matrix
-  if (pMat->shader->normalViewId >= 0) {
-    glUniformMatrix3fv(pMat->shader->normalViewId, 1, false, (const GLfloat *) shdMatGetNormalView(pMatrices)->m);
+  if (pMat->matShader->normalViewId >= 0) {
+    glUniformMatrix3fv(pMat->matShader->normalViewId, 1, false, (const GLfloat *) shdMatGetNormalView(pMatrices)->m);
   };
   
-  if (pMat->shader->mvpId >= 0) {
-    glUniformMatrix4fv(pMat->shader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
+  if (pMat->matShader->mvpId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
   };
   
   // setup our light
 
-  if (pMat->shader->lightPosId >= 0) {
-    glUniform3f(pMat->shader->lightPosId, pLight->adjPosition.x, pLight->adjPosition.y, pLight->adjPosition.z);       
+  if (pMat->matShader->lightPosId >= 0) {
+    glUniform3f(pMat->matShader->lightPosId, pLight->adjPosition.x, pLight->adjPosition.y, pLight->adjPosition.z);       
   };
 
   // setup our material
-  if (pMat->shader->alphaId >= 0) {
-    glUniform1f(pMat->shader->alphaId, pMat->alpha);      
+  if (pMat->matShader->alphaId >= 0) {
+    glUniform1f(pMat->matShader->alphaId, pMat->alpha);      
   };
 
-  if (pMat->shader->matColorId >= 0) {
-    glUniform3f(pMat->shader->matColorId, pMat->matColor.x, pMat->matColor.y, pMat->matColor.z);      
+  if (pMat->matShader->matColorId >= 0) {
+    glUniform3f(pMat->matShader->matColorId, pMat->matColor.x, pMat->matColor.y, pMat->matColor.z);      
   };
 
-  if (pMat->shader->matSpecColorId >= 0) {
-    glUniform3f(pMat->shader->matSpecColorId, pMat->matSpecColor.x, pMat->matSpecColor.y, pMat->matSpecColor.z);      
+  if (pMat->matShader->matSpecColorId >= 0) {
+    glUniform3f(pMat->matShader->matSpecColorId, pMat->matSpecColor.x, pMat->matSpecColor.y, pMat->matSpecColor.z);      
   };
   
-  if (pMat->shader->shininessId >= 0) {
-    glUniform1f(pMat->shader->shininessId, pMat->shininess);      
+  if (pMat->matShader->shininessId >= 0) {
+    glUniform1f(pMat->matShader->shininessId, pMat->shininess);      
   };
 
-  if (pMat->shader->textureMapId >= 0) {
+  if (pMat->matShader->textureMapId >= 0) {
     glActiveTexture(GL_TEXTURE0 + texture);
     if (pMat->diffuseMap == NULL) {
       glBindTexture(GL_TEXTURE_2D, 0);      
     } else {
       glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
     }
-    glUniform1i(pMat->shader->textureMapId, texture); 
+    glUniform1i(pMat->matShader->textureMapId, texture); 
     texture++;   
   };
 
-  if (pMat->shader->reflectMapId >= 0) {
+  if (pMat->matShader->reflectMapId >= 0) {
     glActiveTexture(GL_TEXTURE0 + texture);
     if (pMat->reflectMap == NULL) {
       glBindTexture(GL_TEXTURE_2D, 0);      
     } else {
       glBindTexture(GL_TEXTURE_2D, pMat->reflectMap->textureId);      
     }
-    glUniform1i(pMat->shader->reflectMapId, texture); 
+    glUniform1i(pMat->matShader->reflectMapId, texture); 
     texture++;   
   };  
 
-  if (pMat->shader->bumpMapId >= 0) {
+  if (pMat->matShader->bumpMapId >= 0) {
     glActiveTexture(GL_TEXTURE0 + texture);
     if (pMat->bumpMap == NULL) {
       glBindTexture(GL_TEXTURE_2D, 0);      
     } else {
       glBindTexture(GL_TEXTURE_2D, pMat->bumpMap->textureId);      
     }
-    glUniform1i(pMat->shader->bumpMapId, texture); 
+    glUniform1i(pMat->matShader->bumpMapId, texture); 
     texture++;   
   };  
 };

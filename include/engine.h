@@ -13,27 +13,22 @@
 #ifndef engineh
 #define engineh
 
-// include GLEW
-#include <GL/glew.h>
-
-// include these defines to let GLFW know we need OpenGL 3 support 
-#ifndef GLFW_INCLUDE_GL_3
-#define GLFW_INCLUDE_GL_3
-#endif /* !GLFW_INCLUDE_GL_3 */
-#include <GLFW/glfw3.h>
+// include opengl
+#include "incgl.h"
 
 // include some standard libraries
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 // and some more 3rd party librarys
 #include <fontstash/fontstash.h>
 #include <fontstash/gl3fontstash.h>
 
 // include support libraries
-#include "errorlog.h"
+#include "system.h"
 #include "varchar.h"
 #include "dynamicarray.h"
 #include "linkedlist.h"
@@ -57,7 +52,6 @@ extern "C" {
 typedef void(* EngineError)(int, const char*, ...);
 typedef bool(* EngineKeyPressed)(int);
 
-void engineSetErrorCallback(EngineError pCallback);
 void engineSetKeyPressedCallback(EngineKeyPressed pCallback);
 void engineInit();
 void engineLoad();

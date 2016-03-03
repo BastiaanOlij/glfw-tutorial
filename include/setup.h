@@ -27,7 +27,7 @@
 #include <AntTweakBar/AntTweakBar.h>
 
 // and some of our internal stuff...
-#include "errorlog.h"
+#include "system.h"
 
 // structure for maintaining our setup
 typedef struct glfw_setup {

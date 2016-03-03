@@ -23,7 +23,7 @@
 
 // our libraries we need
 #include <stb/stb_image.h>
-#include "errorlog.h"
+#include "system.h"
 #include "linkedlist.h"
 
 typedef struct texturemap {
@@ -49,6 +49,7 @@ void tmapRetain(texturemap * pTMap);
 void tmapRelease(texturemap * pTMap);
 texturemap * getTextureMapByFileName(const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
 bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
+bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap);
 vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT);
 
 void tmapReleaseCachedTextureMaps();
@@ -206,6 +207,28 @@ bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GL
     
     return true;
   };  
+};
+
+bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap) {
+  // if we haven't got a texture yet, create it, else reuse it
+  if (pTMap == NULL) {
+    return false;
+  };
+
+  // remember these
+  pTMap->filter = pFilter;
+  pTMap->wrap = pWrap;
+  pTMap->width = pWidth;
+  pTMap->height = pHeight;
+
+  glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pWrap);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);  
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, pWidth, pHeight, 0, GL_RED, GL_UNSIGNED_BYTE, pData);
+
+  return true;
 };
 
 vec4 tmapGetPixelXY(texturemap * pTMap, int pX, int pY) {

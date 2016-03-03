@@ -22,7 +22,7 @@
 #define joystickh
 
 // our libraries we need
-#include "errorlog.h"
+#include "system.h"
 
 #define MAX_JOYSTICKS 16
 

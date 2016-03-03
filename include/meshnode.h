@@ -22,7 +22,7 @@
 #ifndef meshnodeh
 #define meshnodeh
 
-#include "errorlog.h"
+#include "system.h"
 #include "linkedlist.h"
 #include "dynamicarray.h"
 #include "varchar.h"

@@ -1,0 +1,76 @@
+// our heightmap shader - tesselation version, mostly based on superbible 6
+
+// Our tesselation evaluation shader is called for each vertex generated out of our control shader but it lets us calculate its
+// exact position. We're just doing a straight forward interpolation here and then looking up the correct height value for
+// that position.
+// The output of our tesselation evaluation shader will be the vertices that render our height field in plain old triangles. 
+
+#version 410 core
+
+// we're still getting quads in
+layout (quads, fractional_even_spacing, cw) in;
+
+// and we need access to our uniforms again
+uniform vec3 eyePos;        // our eye position
+uniform mat4 projection;    // our projection matrix
+uniform mat4 view;          // our view matrix
+uniform sampler2D bumpMap;  // our height map
+uniform float mapscale;     // our map scale
+uniform float mapheight;    // our map height
+
+// again an array as input, we get our 4 
+// in vec3 tsPosition[];
+
+// but now we're defining a struct as output, makes life easier
+out TE_OUT {
+  vec2 T;
+  vec3 N;
+  vec4 V;
+} te_out;
+
+// here are our functions again
+float getHeight(vec2 pos) {
+  vec4 col = texture(bumpMap, pos / mapscale);
+
+  return col.r * mapheight;
+}
+
+vec3 calcNormal(vec2 pos) {
+  vec3 cN;
+
+  cN.x = getHeight(vec2(pos.s-10.0,pos.t)) - getHeight(vec2(pos.s+10.0,pos.t));
+  cN.y = 20.0;
+  cN.z = getHeight(vec2(pos.s,pos.t-10.0)) - getHeight(vec2(pos.s,pos.t+10.0));
+
+  return normalize(cN);
+}
+
+void main(void) {
+  // Interpolate along bottom edge using x component of the
+  // tessellation coordinate
+  vec4 V1 = mix(gl_in[0].gl_Position,
+                gl_in[1].gl_Position,
+                gl_TessCoord.x);
+  // Interpolate along top edge using x component of the
+  // tessellation coordinate
+  vec4 V2 = mix(gl_in[2].gl_Position,
+                gl_in[3].gl_Position,
+                gl_TessCoord.x);
+  // Now interpolate those two results using the y component
+  // of tessellation coordinate
+  vec4 V = mix(V1, V2, gl_TessCoord.y);
+
+  // Set height
+  V.y = getHeight(V.xz);
+  
+  // and use our coordinates as texture coordinates in our fragment shader
+  te_out.T = vec2(V.x / 2000.0, V.z / 2000.0);
+  
+  // now do our normal
+  te_out.N = calcNormal(V.xz);
+  te_out.N = (view * vec4(te_out.N+eyePos, 1.0)).xyz;
+
+  // now rotate our vertex
+  te_out.V = view * V;
+  gl_Position = projection * te_out.V;
+}

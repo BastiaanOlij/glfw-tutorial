@@ -12,13 +12,14 @@
 //////////////////////////////////////////////////////////
 // For now we just some global state to make life easy
 
-EngineError engineErrCallback = NULL;
 EngineKeyPressed engineKeyPressedCallback = NULL;
+
+// info about what is supported, this should move into our shader library at some point
+int           maxPatches = 0; // how many patches can our shader output
+int           maxTessLevel = 0; // what is the maximum tesselation level we support
 
 // object info
 llist *       materials = NULL;
-mesh3d *      hMapMesh = NULL;
-mesh3d *      skyboxMesh = NULL;
 meshNode *    scene = NULL;
 meshNode *    tieNodes[10] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
@@ -28,11 +29,11 @@ int           font = FONS_INVALID;
 float         lineHeight = 0.0f;
 
 // shaders
-shaderStdInfo   skyboxShader;
-shaderStdInfo   hmapShader;
-shaderStdInfo   colorShader;
-shaderStdInfo   texturedShader;
-shaderStdInfo   reflectShader;
+shaderInfo *  skyboxShader = NULL;
+shaderInfo *  hmapShader = NULL;
+shaderInfo *  colorShader = NULL;
+shaderInfo *  texturedShader = NULL;
+shaderInfo *  reflectShader = NULL;
 
 // lights
 lightSource   sun;
@@ -48,20 +49,6 @@ double        frames = 0.0f;
 double        fps = 0.0f;
 double        lastframes = 0.0f;
 double        lastsecs = 0.0f;
-
-
-//////////////////////////////////////////////////////////
-// error handling
-
-// sets our error callback method which is modelled after 
-// GLFWs error handler so you can use the same one
-void engineSetErrorCallback(EngineError pCallback) {
-  engineErrCallback = pCallback;
-  
-  // Set our callbacks in our support libraries
-//  tsSetErrorCallback(engineErrCallback);
-//  spSetErrorCallback(engineErrCallback);
-};
 
 //////////////////////////////////////////////////////////
 // keyboard handling
@@ -91,10 +78,10 @@ void load_font() {
       fonsSetAlign(fs, FONS_ALIGN_LEFT | FONS_ALIGN_TOP); // left/top aligned
       fonsVertMetrics(fs, NULL, NULL, &lineHeight);
     } else {
-      engineErrCallback(-201, "Couldn't load DroidSerif-Regular.ttf");       
+      errorlog(-201, "Couldn't load DroidSerif-Regular.ttf");       
     };
   } else {
-    engineErrCallback(-200, "Couldn't create our font context");
+    errorlog(-200, "Couldn't create our font context");
   };
 };
 
@@ -108,168 +95,54 @@ void unload_font() {
 //////////////////////////////////////////////////////////
 // Shaders
 
-// load contents of a file
-// return NULL on failure
-// returns string on success, calling function is responsible for freeing the text
-char* loadFile(const char* pPath, const char* pFileName) {
-  char  error[1024];
-  char* result = NULL;
-  char  fileName[1024];
-
-  // read "binary", we simply keep our newlines as is
-  sprintf(fileName,"%s%s",pPath, pFileName);
-  FILE* file = fopen(fileName,"rb");
-  if (file == NULL) {
-    sprintf(error,"Couldn't open %s",fileName);
-    engineErrCallback(-100, error);
-  } else {
-    long size;
-    
-    // find the end of the file to get its size
-    fseek(file, 0, SEEK_END);
-    size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    
-    // allocate space for our data
-    result = (char*) malloc(size+1);
-    if (result == NULL) {
-      sprintf(error,"Couldn't allocate memory buffer for %li bytes",size);
-      engineErrCallback(-101, error);    
-    } else {
-      // and load our text
-      fread(result, 1, size, file);
-      result[size] = 0;
-    };
-    
-    fclose(file);
-  };
-  
-  return result;
-};
-
 void load_shaders() {
-  char*       shaderText = NULL;
-  char        shaderPath[1024];
-  GLuint      vertexShader = NO_SHADER;
-  GLuint      fragmentShader = NO_SHADER;
-
   // init some paths
   #ifdef __APPLE__
-    strcpy(shaderPath,"Shaders/");
+    shaderSetPath("Shaders/");
   #else
-    strcpy(shaderPath,"Resources\\Shaders\\");
+    shaderSetPath("Resources\\Shaders\\");
   #endif
 
-  skyboxShader.program = 0;
-  shaderText = loadFile(shaderPath, "skybox.vs");
-  if (shaderText != NULL) {
-    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
-    free(shaderText);
-    
-    if (vertexShader != NO_SHADER) {
-      // compile our color shader
-      shaderText = loadFile(shaderPath, "skybox.fs");
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          skyboxShader = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader), "skybox");
+  // get info about our tesselation capabilities
+  glGetIntegerv(GL_MAX_PATCH_VERTICES, &maxPatches);
+  errorlog(0, "Supported patches: %d", maxPatches);
+  if (maxPatches >= 4) {
+    // setup using quads
+    glPatchParameteri(GL_PATCH_VERTICES, 4);
 
-          // no longer need this...
-          glDeleteShader(fragmentShader);
-        };                
-      };
-    };
+    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &maxTessLevel);
+    errorlog(0, "Maximum supported tesselation level: %d", maxTessLevel);
   };
 
-  hmapShader.program = 0;
-  shaderText = loadFile(shaderPath, "hmap.vs");
-  if (shaderText != NULL) {
-    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
-    free(shaderText);
-    
-    if (vertexShader != NO_SHADER) {
-      // compile our color shader
-      shaderText = loadFile(shaderPath, "hmap.fs");
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          hmapShader = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader), "hmap");
+  skyboxShader = newShader("skybox", "skybox.vs", NULL, NULL, NULL, "skybox.fs");
 
-          // no longer need this...
-          glDeleteShader(fragmentShader);
-        };                
-      };
-    };
+  if (maxPatches >= 4) {
+    hmapShader = newShader("hmap", "hmap_ts.vs", "hmap_ts.ts", "hmap_ts.te", "hmap_ts.gs", "hmap_ts.fs");
+  } else {
+    hmapShader = newShader("hmap", "hmap.vs", NULL, NULL, NULL, "hmap.fs");
   };
 
-  colorShader.program = 0;
-  texturedShader.program = 0;
-  reflectShader.program = 0;
-  shaderText = loadFile(shaderPath, "standard.vs");
-  if (shaderText != NULL) {
-    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
-    free(shaderText);
-    
-    if (vertexShader != NO_SHADER) {
-      // compile our color shader
-      shaderText = loadFile(shaderPath, "flatcolor.fs");
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          colorShader = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader), "flatcolor");
-
-          // no longer need this...
-          glDeleteShader(fragmentShader);
-        };                
-      };
-
-      // compile our textured shader
-      shaderText = loadFile(shaderPath, "textured.fs");
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          texturedShader = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader), "textures");
-
-          // no longer need this...
-          glDeleteShader(fragmentShader);
-        };                
-      };
-
-      // compile our refleect shader
-      shaderText = loadFile(shaderPath, "reflect.fs");
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          reflectShader = shaderGetStdInfo(shaderLink(2, vertexShader, fragmentShader), "reflect");
-
-          // no longer need this...
-          glDeleteShader(fragmentShader);
-        };                
-      };
-      
-      // no longer need this...
-      glDeleteShader(vertexShader);
-    };
-  };
+  colorShader = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "flatcolor.fs");
+  texturedShader = newShader("textured", "standard.vs", NULL, NULL, NULL, "textured.fs");
+  reflectShader = newShader("reflect", "standard.vs", NULL, NULL, NULL, "reflect.fs");
 };
 
 void unload_shaders() {
-  // should add proper functions for freeing up shaders here
-  glDeleteProgram(colorShader.program);
-  glDeleteProgram(texturedShader.program);
-  glDeleteProgram(reflectShader.program);
-  glDeleteProgram(skyboxShader.program);
-  glDeleteProgram(hmapShader.program);
+  if (colorShader != NULL) {
+    shaderRelease(colorShader);
+  };
+  if (texturedShader != NULL) {
+    shaderRelease(texturedShader);
+  };
+  if (reflectShader != NULL) {
+    shaderRelease(reflectShader);
+  };
+  if (skyboxShader != NULL) {
+    shaderRelease(skyboxShader);    
+  };
+  if (hmapShader != NULL) {
+    shaderRelease(hmapShader);    
+  };
 };
 
 //////////////////////////////////////////////////////////
@@ -277,37 +150,54 @@ void unload_shaders() {
 
 void initHMap() {
   material *    mat;
+  meshNode *    mnode;
+  mesh3d *      mesh;
 
   mat = newMaterial("hmap");                  // create a material for our heightmap
-  mat->shader = &hmapShader;                  // texture shader for now
+  matSetShader(mat, hmapShader);              // texture shader for now
   matSetDiffuseMap(mat, getTextureMapByFileName("grass.jpg", GL_LINEAR, GL_REPEAT, false));
   matSetBumpMap(mat, getTextureMapByFileName("heightfield.jpg", GL_LINEAR, GL_REPEAT, true));
 
-  hMapMesh = newMesh(102 * 102, 101 * 101 * 3 * 2);
-  strcpy(hMapMesh->name, "hmap");
-  meshSetMaterial(hMapMesh, mat);
-  meshMakePlane(hMapMesh, 101, 101, 101.0, 101.0);
-  meshCopyToGL(hMapMesh, true);
+  mesh = newMesh(102 * 102, 101 * 101 * 3 * 2);
+  strcpy(mesh->name, "hmap");
+  meshSetMaterial(mesh, mat);
+  meshMakePlane(mesh, 101, 101, 101.0, 101.0, maxPatches >= 4);
+  meshCopyToGL(mesh, true);
+
+  // now add our heightfield to our scene
+  mnode = newMeshNode("hmap");
+  meshNodeSetMesh(mnode, mesh);
+  meshNodeAddChild(scene, mnode);
 
   // we can release these seeing its now all contained within our scene
   matRelease(mat);
+  meshRelease(mesh);
 };
 
 void initSkybox() {
   material *    mat;
+  meshNode *    mnode;
+  mesh3d *      mesh;
 
   mat = newMaterial("skybox");                // create a material for our skybox
-  mat->shader = &skyboxShader;                // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
+  matSetShader(mat, skyboxShader);            // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
   matSetDiffuseMap(mat, getTextureMapByFileName("skybox.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false)); // load our texture map (courtesy of http://rbwhitaker.wikidot.com/texture-library)
-  skyboxMesh = newMesh(24, 36);               // init our cube with enough space for our buffers
-  strcpy(skyboxMesh->name,"skybox");          // set name to cube
-  meshSetMaterial(skyboxMesh, mat);           // assign our material
-  meshMakeCube(skyboxMesh, 100000.0, 100000.0, 100000.0, true);  // create our cube, we make it as large as possible
-  meshFlipFaces(skyboxMesh);                  // turn the mesh inside out
-  meshCopyToGL(skyboxMesh, true);             // copy our cube data to the GPU
+ 
+  mesh = newMesh(24, 36);                     // init our cube with enough space for our buffers
+  strcpy(mesh->name,"skybox");                // set name to cube
+  meshSetMaterial(mesh, mat);                 // assign our material
+  meshMakeCube(mesh, 100000.0, 100000.0, 100000.0, true);  // create our cube, we make it as large as possible
+  meshFlipFaces(mesh);                        // turn the mesh inside out
+  meshCopyToGL(mesh, true);                   // copy our cube data to the GPU
+
+  // now add our skybox to our scene
+  mnode = newMeshNode("skybox");
+  meshNodeSetMesh(mnode, mesh);
+  meshNodeAddChild(scene, mnode);
 
   // we can release these seeing its now all contained within our scene
   matRelease(mat);
+  meshRelease(mesh);
 };
 
 void load_objects() {
@@ -332,7 +222,7 @@ void load_objects() {
 
   // create our default material, make sure it's the first one
   mat = newMaterial("Default");
-  mat->shader = &colorShader;
+  matSetShader(mat, colorShader);
   llistAddTo(materials, mat);
   matRelease(mat);
   mat = NULL;
@@ -351,11 +241,11 @@ void load_objects() {
     mat = (material * ) lnode->data;
 
     if (mat->reflectMap != NULL) {  
-      mat->shader = &reflectShader;
+      matSetShader(mat, reflectShader);
     } else if (mat->diffuseMap != NULL) {          
-      mat->shader = &texturedShader;
+      matSetShader(mat, texturedShader);
     } else {
-      mat->shader = &colorShader;
+      matSetShader(mat, colorShader);
     };
     
     lnode = lnode->next;
@@ -441,18 +331,6 @@ void unload_objects() {
   // free our object data
   errorlog(0, "Unloading objects...");
 
-  // release our skybox
-  if (skyboxMesh != NULL) {
-    meshRelease(skyboxMesh);
-    skyboxMesh = NULL;
-  };
-
-  // release our heightmap
-  if (hMapMesh != NULL) {
-    meshRelease(hMapMesh);
-    hMapMesh = NULL;
-  };
-
   // release our tie-bomber nodes
   for (i = 0; i < 10; i++) {
     if (tieNodes[i] != NULL) {
@@ -530,8 +408,8 @@ void engineUpdate(double pSecondsPassed) {
   } else if (joystick->enabled) {
     moveHorz = joystick->axes[0] * 2.0;
     moveVert = joystick->axes[1] * 2.0;
-    moveForward = joystick->axes[3] * 10.0;
-    moveSideways = joystick->axes[2] * 10.0;
+    moveForward = joystick->axes[3] * 20.0;
+    moveSideways = joystick->axes[2] * 20.0;
   };
     
   // handle our keys....
@@ -658,19 +536,6 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
 
     // This may have been turned on in our node renderer
     glDisable(GL_BLEND);
-  };
-
-  if (hMapMesh != NULL) {
-    // our model matrix is ignore here so we don't need to set it..
-    matSelectProgram(hMapMesh->material, &matrices, &sun);
-    meshRender(hMapMesh);
-  };
-
-  // and render our skybox
-  if (skyboxMesh != NULL) {
-    // our model matrix is ignore here so we don't need to set it..
-    matSelectProgram(skyboxMesh->material, &matrices, &sun);
-    meshRender(skyboxMesh);
   };
   
   // unset stuff

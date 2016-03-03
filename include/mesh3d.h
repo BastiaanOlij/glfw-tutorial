@@ -25,7 +25,7 @@
 #ifndef mesh3dh
 #define mesh3dh
 
-#include "errorlog.h"
+#include "system.h"
 #include "linkedlist.h"
 #include "dynamicarray.h"
 #include "varchar.h"
@@ -49,6 +49,7 @@ typedef struct mesh3d {
   char          name[50];             // name for this mesh 
   bool          canRender;            // if true we can render this
   bool          isLoaded;             // if true this is loaded into our GL memory
+  int           verticesPerFace;      // vertices per face, 3 and 4 are currently supported
   
   // material to use
   material *    material;             // our material
@@ -78,12 +79,13 @@ void meshSetMaterial(mesh3d * pMesh, material * pMat);
 GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex);
 void meshFlipNormals(mesh3d * pMesh);
 bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC);
+bool meshAddQuad(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC, GLuint pD);
 void meshFlipFaces(mesh3d * pMesh);
 void meshCenter(mesh3d *pMesh);
 bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers);
 bool meshRender(mesh3d * pMesh);
 
-bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight);
+bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight, bool pAddQuads);
 bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB);
 bool meshMakeSphere(mesh3d * pMesh, GLfloat pRadius);
 
@@ -107,6 +109,7 @@ void meshInit(mesh3d * pMesh, GLuint pInitialVertices, GLuint pInitialIndices) {
   pMesh->canRender = true;
   pMesh->isLoaded = false;
   pMesh->visible = true;
+  pMesh->verticesPerFace = 3;
   strcpy(pMesh->name, "New");
   
   // init our material
@@ -269,8 +272,15 @@ void meshFlipNormals(mesh3d * pMesh) {
 bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC) {
   if (pMesh == NULL) {
     return false;
+  } else if (pMesh->verticesPerFace != 3) {
+    // start over
+    pMesh->verticesPerFace = 3;
+    if (pMesh->indices != NULL) {
+      dynArrayFree(pMesh->indices);
+      pMesh->indices = NULL;
+    };
   };
-  
+
   if (pMesh->indices == NULL) {
     pMesh->indices = newDynArray(sizeof(GLuint));
     if (pMesh->indices == NULL) {
@@ -286,20 +296,73 @@ bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC) {
   return true;
 };
 
+// adds a quad (4 indices into vertex array)
+// note quads are laid out a bit weird:
+// c------d
+// |      |
+// |      |
+// a------b
+// returns false on failure
+bool meshAddQuad(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC, GLuint pD) {
+  if (pMesh == NULL) {
+    return false;
+  } else if (pMesh->verticesPerFace != 4) {
+    // start over
+    pMesh->verticesPerFace = 4;
+    if (pMesh->indices != NULL) {
+      dynArrayFree(pMesh->indices);
+      pMesh->indices = NULL;
+    };
+  };
+
+  if (pMesh->indices == NULL) {
+    pMesh->indices = newDynArray(sizeof(GLuint));
+    if (pMesh->indices == NULL) {
+      return GL_UNDEF_OBJ;
+    };
+  };
+  
+  dynArrayPush(pMesh->indices, &pA);
+  dynArrayPush(pMesh->indices, &pB);
+  dynArrayPush(pMesh->indices, &pC);
+  dynArrayPush(pMesh->indices, &pD);
+  pMesh->isLoaded = false;
+  
+  return true;
+};
+
 // flips all faces of the mesh
 void meshFlipFaces(mesh3d * pMesh){
   int i;
 
   if (pMesh == NULL) {
     return;
+  } else if (pMesh->indices == NULL) {
+    return;
   };
 
-  for (i = 0; i < pMesh->indices->numEntries; i+=3) {
-    GLuint * a = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i);
-    GLuint * c = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i+2);
-    GLuint swap = *a;
-    *a = *c;
-    *c = swap;
+  if (pMesh->verticesPerFace == 3) {
+    for (i = 0; i < pMesh->indices->numEntries; i+=3) {
+      GLuint * a = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i);
+      GLuint * c = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i+2);
+      GLuint swap = *a;
+      *a = *c;
+      *c = swap;
+    };
+  } else if (pMesh->verticesPerFace == 4) {
+    for (i = 0; i < pMesh->indices->numEntries; i+=4) {
+      GLuint * a = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i);
+      GLuint * b = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i+1);
+      GLuint * c = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i+2);
+      GLuint * d = (GLuint *) dynArrayDataAtIndex(pMesh->indices, i+3);
+      GLuint swap = *a;
+      *a = *b;
+      *b = swap;
+
+      swap = *c;
+      *c = *d;
+      *d = swap;
+    };
   };
 };
 
@@ -427,7 +490,11 @@ bool meshRender(mesh3d * pMesh) {
   };
   
   glBindVertexArray(pMesh->VAO);
-  glDrawElements(GL_TRIANGLES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0);	
+  if (pMesh->verticesPerFace == 3) {
+    glDrawElements(GL_TRIANGLES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
+  } else if (pMesh->verticesPerFace == 4) {
+    glDrawElements(GL_PATCHES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
+  };
   glBindVertexArray(0);
   
   return true;
@@ -449,7 +516,7 @@ bool meshRender(mesh3d * pMesh) {
 // |  \|  \|  \|
 // 12-13--14--15
 
-bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight) {
+bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight, bool pAddQuads) {
   int     x, y, idx = 0;
   float   posY = -pHeight / 2.0;
   float   sizeX = pWidth / pHorzTiles;
@@ -473,9 +540,14 @@ bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth,
       meshAddVertex(pMesh, &v);
 
       if ((x>0) && (y>0)) {
-        // add triangles
-        meshAddFace(pMesh, idx - pHorzTiles - 2, idx - pHorzTiles - 1, idx);
-        meshAddFace(pMesh, idx - pHorzTiles - 2, idx, idx - 1);
+        if (pAddQuads) {
+          // add quad
+          meshAddQuad(pMesh, idx-1, idx, idx - pHorzTiles - 2, idx - pHorzTiles - 1);
+        } else {
+          // add triangles
+          meshAddFace(pMesh, idx - pHorzTiles - 2, idx - pHorzTiles - 1, idx);
+          meshAddFace(pMesh, idx - pHorzTiles - 2, idx, idx - 1);
+        };
       };
 
       posX += sizeX;

@@ -49,7 +49,7 @@ void main(void) {
   N = calcNormal(V.xz);
   N = (view * vec4(N+eyePos, 1.0)).xyz;
 
-  // and use our coordinates as texture coordinates in our frament shader
+  // and use our coordinates as texture coordinates in our fragment shader
   T = vec2(V.x / 2000.0, V.z / 2000.0);
 
   // our on screen position by applying our view and projection matrix

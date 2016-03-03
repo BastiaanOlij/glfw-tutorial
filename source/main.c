@@ -2,7 +2,7 @@
 #define FONTSTASH_IMPLEMENTATION
 #define GLFONTSTASH_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#define ERRORLOG_IMPLEMENTATION
+#define SYS_IMPLEMENTATION
 #define VARCHAR_IMPLEMENTATION
 #define LINKEDLIST_IMPLEMENTATION
 #define DYNARRAY_IMPLEMENTATION
@@ -143,7 +143,6 @@ int main(void) {
     
     // load and initialize our engine
     engineInit();
-    engineSetErrorCallback(errorlog);
     engineSetKeyPressedCallback(keypressed_callback);
     engineLoad();
 
