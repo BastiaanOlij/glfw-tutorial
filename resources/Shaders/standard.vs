@@ -36,9 +36,9 @@ void main(void) {
   // V after our model-view matrix is applied
   V = modelView * V;
   
-  // N after our normal matrix is applied
-  N = normalize(normalMatrix * N);
-
   // N after our normalView matrix is applied
   Nv = normalize(normalView * N);
+  
+  // N after our normal matrix is applied
+  N = normalize(normalMatrix * N);
 }
