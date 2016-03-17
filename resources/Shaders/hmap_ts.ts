@@ -8,9 +8,9 @@
 // we output 4 vertices, we're still doing quads
 layout (vertices = 4) out;
 
-const float precision = 50.0;  // our precision factor, the higher, the more polies we generate
-const float falloff = 1.5;    // our low res quads may fall off screen yet after tessellation and adjustment appear visible so we cast a wider net.
- 
+const float prec = 50.0; // our precision factor, the higher, the more polies we generate
+const float falloff = 1.5; // our low res quads may fall off screen yet after tessellation and adjustment appear visible so we cast a wider net.
+
 uniform int maxTessGenLevel = 16;  // maximum tesselation level
 
 // input from our vertex shader, note that this is an array of 4!!
@@ -48,16 +48,16 @@ void main(void) {
       // If any edge goes through our Camera plane we set maximum level
       
       if ((V0.z>0.0) && (V2.z>0.0)) {
-        level0 = min(maxTessGenLevel, max(length(V0.xy - V2.xy) * precision, 1.0));
+        level0 = min(maxTessGenLevel, max(length(V0.xy - V2.xy) * prec, 1.0));
       }
       if ((V0.z>0.0) && (V1.z>0.0)) {
-        level1 = min(maxTessGenLevel, max(length(V0.xy - V1.xy) * precision, 1.0));
+        level1 = min(maxTessGenLevel, max(length(V0.xy - V1.xy) * prec, 1.0));
       }
       if ((V1.z>0.0) && (V1.z>0.0)) {
-        level2 = min(maxTessGenLevel, max(length(V1.xy - V3.xy) * precision, 1.0));
+        level2 = min(maxTessGenLevel, max(length(V1.xy - V3.xy) * prec, 1.0));
       }
       if ((V3.z>0.0) && (V2.z>0.0)) {
-        level3 = min(maxTessGenLevel, max(length(V3.xy - V2.xy) * precision, 1.0));
+        level3 = min(maxTessGenLevel, max(length(V3.xy - V2.xy) * prec, 1.0));
       }
 
       gl_TessLevelOuter[0] = level0;

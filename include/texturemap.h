@@ -49,6 +49,7 @@ void tmapRetain(texturemap * pTMap);
 void tmapRelease(texturemap * pTMap);
 texturemap * getTextureMapByFileName(const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
 bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
+bool tmapMakeMipMap(texturemap * pTMap);
 bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap);
 vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT);
 
@@ -192,6 +193,7 @@ bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GL
     pTMap->width = x;
     pTMap->height = y;
     
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
@@ -221,6 +223,7 @@ bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, i
   pTMap->width = pWidth;
   pTMap->height = pHeight;
 
+  glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
@@ -231,15 +234,42 @@ bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, i
   return true;
 };
 
+// generates mipmaps for our texture
+bool tmapMakeMipMap(texturemap * pTMap) {
+  // if we haven't got a texture yet, create it, else reuse it
+  if (pTMap == NULL) {
+    return false;
+  };
+
+  // generate mipmap, we assume image has been loaded
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
+  glGenerateMipmap(GL_TEXTURE_2D);
+
+  return true;
+};
+
 vec4 tmapGetPixelXY(texturemap * pTMap, int pX, int pY) {
   vec4 pixel;
   int pos;
 
+  // tile 
+  pX = pX % pTMap->width;
+  pY = pY % pTMap->height;
+
+  // adjust just in case..
+  if (pX < 0.0) {
+    pX += pTMap->width;
+  };
+  if (pY < 0.0) {
+    pY += pTMap->height;
+  };
+
   pos = (pX + (pY * pTMap->width)) * 4;
-  pixel.x = pTMap->data[pos];
-  pixel.y = pTMap->data[pos+1];
-  pixel.z = pTMap->data[pos+2];
-  pixel.w = pTMap->data[pos+3];
+  pixel.x = (float) pTMap->data[pos];
+  pixel.y = (float) pTMap->data[pos+1];
+  pixel.z = (float) pTMap->data[pos+2];
+  pixel.w = (float) pTMap->data[pos+3];
   vec4Div(&pixel, 255.0);
 
   return pixel;
@@ -250,25 +280,15 @@ vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT) {
   vec4Set(&pixel, 1.0, 1.0, 1.0, 1.0);
   if (pTMap == NULL) {
     // huh?
+    errorlog(-1, "No map specified");
   } else if (pTMap->data == NULL) {
     // double huh?
+    errorlog(-1, "No mapdata available");
   } else {
     vec4 p1, p2, p3, p4;
     float xf = (pS * pTMap->width);
     float yf = (pT * pTMap->height);
     int x, y;
-
-    // tile
-    xf = fmod(xf, pTMap->width);
-    yf = fmod(yf, pTMap->height);
-
-    // adjust just in case..
-    if (xf < 0.0) {
-      xf += pTMap->width;
-    };
-    if (yf < 0.0) {
-      yf += pTMap->height;
-    };
 
     // floor our values
     x = floor(xf);

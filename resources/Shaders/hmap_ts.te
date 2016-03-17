@@ -39,7 +39,7 @@ vec3 calcNormal(vec2 pos) {
   vec3 cN;
 
   cN.x = getHeight(vec2(pos.s-10.0,pos.t)) - getHeight(vec2(pos.s+10.0,pos.t));
-  cN.y = 20.0;
+  cN.y = 5.0;
   cN.z = getHeight(vec2(pos.s,pos.t-10.0)) - getHeight(vec2(pos.s,pos.t+10.0));
 
   return normalize(cN);

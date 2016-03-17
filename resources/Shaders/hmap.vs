@@ -7,21 +7,25 @@ uniform mat4 projection;    // our projection matrix
 uniform mat4 view;          // our view matrix
 uniform sampler2D bumpMap;  // our height map
 
+uniform float mapscale = 50000.0; // our map scale
+uniform float mapheight = 1000.0; // our map height
+uniform float tilescale = 2000.0; // our tile scale
+
 out vec4 V;
 out vec3 N;
 out vec2 T;
 
 float getHeight(vec2 pos) {
-  vec4 col = texture(bumpMap, pos / 10000.0);
+  vec4 col = texture(bumpMap, pos / mapscale);
 
-  return col.r * 1000.0;
+  return col.r * mapheight;
 }
 
 vec3 calcNormal(vec2 pos) {
   vec3 cN;
 
   cN.x = getHeight(vec2(pos.s-10.0,pos.t)) - getHeight(vec2(pos.s+10.0,pos.t));
-  cN.y = 20.0;
+  cN.y = 5.0;
   cN.z = getHeight(vec2(pos.s,pos.t-10.0)) - getHeight(vec2(pos.s,pos.t+10.0));
 
   return normalize(cN);
@@ -32,7 +36,7 @@ void main(void) {
   V = vec4(positions, 1.0);
 
   // our start scale, note that we may vary this depending on distance of ground to camera
-  float scale = 1000.0;
+  float scale = tilescale;
 
   // and scale it up
   V.x = (V.x * scale);

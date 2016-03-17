@@ -14,6 +14,7 @@ uniform mat4 view;          // our view matrix
 uniform sampler2D bumpMap;  // our height map
 uniform float mapscale = 50000.0; // our map scale
 uniform float mapheight = 1000.0; // our map height
+uniform float tilescale = 2000.0; // our tile scale
 
 // we only output our projected V
 out vec3 Vp;
@@ -29,7 +30,7 @@ void main(void) {
   vec4 V = vec4(positions, 1.0);
 
   // our start scale, note that we may vary this depending on distance of ground to camera
-  float scale = 2000.0;
+  float scale = tilescale;
 
   // and scale it up
   V.x = (V.x * scale);
