@@ -36,6 +36,9 @@ typedef struct meshNode {
   bool          visible;              /* if true we render the mesh(es) contained within this node */
   char          name[250];            /* name for this node */
   
+  // LOD limits
+  float         maxDist;              /* maximum distance to camera */
+
   // our positioning matrix
   mat4          position;             /* position relative to our parent instance */
   
@@ -44,6 +47,7 @@ typedef struct meshNode {
   
   // children
   llist *       children;             /* child nodes */
+  bool          firstVisOnly;         /* render the first visible child only (LOD) */
 } meshNode;
 
 #ifdef __cplusplus
@@ -73,9 +77,11 @@ meshNode * newMeshNode(const char * pName) {
     newNode->retainCount = 1;
     newNode->visible = true;
     strcpy(newNode->name, pName);
+    newNode->maxDist = 0;
     mat4Identity(&newNode->position);
     newNode->mesh = NULL;
     newNode->children = newMeshNodeList();
+    newNode->firstVisOnly = false;
   };
   
   return newNode;
@@ -94,10 +100,12 @@ meshNode * newCopyMeshNode(const char *pName, meshNode * pCopy, bool pDeepCopy) 
     newNode->retainCount = 1;
     newNode->visible = pCopy->visible;
     strcpy(newNode->name, pName);
+    newNode->maxDist = pCopy->maxDist;
     mat4Copy(&newNode->position, &pCopy->position);
     newNode->mesh = NULL; /* start NULL! */
     meshNodeSetMesh(newNode, pCopy->mesh); /* now assign our mesh, note that we're thus retaining the same mesh as the node we're copying*/
     newNode->children = newMeshNodeList();
+    newNode->firstVisOnly = pCopy->firstVisOnly;
 
     // now copy our children
     lnode = pCopy->children->first;
@@ -223,21 +231,44 @@ typedef struct renderMesh {
 } renderMesh;
 
 // build our no-alpha and alpha render lists based on the contents of our node
-void meshNodeBuildRenderList(meshNode * pNode, mat4 * pModel, dynarray * pNoAlpha, dynarray * pAlpha) {
+bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const vec3 * pEye, dynarray * pNoAlpha, dynarray * pAlpha) {
   mat4 model;
   
   // is there anything to do?
   if (pNode == NULL) {
-    return;
+    return false;
   } else if (pNode->visible == false) {
-    return;
+    return false;
   };
   
   // make our model matrix
   mat4Copy(&model, pModel);
   mat4Multiply(&model, &pNode->position);
+
+  // check our distance
+  if (pNode->maxDist > 0) {
+    float distance;
+    vec3  pos;
+
+    // first get our position from our model matrix
+    vec3Set(&pos, model.m[3][0], model.m[3][1], model.m[3][2]);
+
+    // subtract our camera position to get our relative position
+    vec3Sub(&pos, pEye);
+
+    // and get our distance
+    distance = vec3Lenght(&pos);
+
+    if (distance > pNode->maxDist) {
+      return false;
+    };
+  };
   
   if (pNode->mesh != NULL) {
+    if (pNode->mesh->visible == false) {
+      return false;
+    };
+
     // add our mesh
     renderMesh render;
     render.mesh = pNode->mesh;
@@ -250,44 +281,62 @@ void meshNodeBuildRenderList(meshNode * pNode, mat4 * pModel, dynarray * pNoAlph
       dynArrayPush(pAlpha, &render); // this copies our structure      
     } else {
       dynArrayPush(pNoAlpha, &render); // this copies our structure      
-    }
+    };
   };
   
   if (pNode->children != NULL) {
     llistNode * node = pNode->children->first;
     
     while (node != NULL) {
-      meshNodeBuildRenderList((meshNode *) node->data, &model, pNoAlpha, pAlpha);
-      node = node->next;
+      bool visible = meshNodeBuildRenderList((meshNode *) node->data, &model, pEye, pNoAlpha, pAlpha);
+
+      if (pNode->firstVisOnly && visible) {
+        // we've rendered our first visible child, ignore the rest!
+        node = NULL;
+      } else {
+        node = node->next;
+      };
     };
   };
+
+  return true;
 };
 
 // render the contents of our node to the current output
 void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun) {
   dynarray *      meshesWithoutAlpha  = newDynArray(sizeof(renderMesh));
   dynarray *      meshesWithAlpha     = newDynArray(sizeof(renderMesh));
+  vec3            eye;
   mat4            model;
   int             i;
 
+  // get our camera position
+  shdMatGetEyePos(pMatrices, &eye);
+
   // prepare our array with things to render....
   mat4Identity(&model);
-  meshNodeBuildRenderList(pNode, &model, meshesWithoutAlpha, meshesWithAlpha);
+  meshNodeBuildRenderList(pNode, &model, &eye, meshesWithoutAlpha, meshesWithAlpha);
   
   // now render no-alpha
   glDisable(GL_BLEND);
 
   for (i = 0; i < meshesWithoutAlpha->numEntries; i++) {
+    bool selected = true;
     renderMesh * render = dynArrayDataAtIndex(meshesWithoutAlpha, i);
   
     shdMatSetModel(pMatrices, &render->model);
     if (render->mesh->material == NULL) {
-      matSelectProgram(pDefaultMaterial, pMatrices, pSun);
+      selected = matSelectProgram(pDefaultMaterial, pMatrices, pSun);
     } else {
-      matSelectProgram(render->mesh->material, pMatrices, pSun);
+      selected = matSelectProgram(render->mesh->material, pMatrices, pSun);
     };
 
-    meshRender(render->mesh);
+    if (selected) {
+      meshRender(render->mesh);
+    } else {
+      // couldn't select our material? don't attemp again
+      render->mesh->visible = false;
+    };
   };    
   
   
@@ -297,12 +346,18 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
   for (i = 0; i < meshesWithAlpha->numEntries; i++) {
+    bool selected = true;
     renderMesh * render = dynArrayDataAtIndex(meshesWithAlpha, i);
   
     shdMatSetModel(pMatrices, &render->model);
-    matSelectProgram(render->mesh->material, pMatrices, pSun);
+    selected = matSelectProgram(render->mesh->material, pMatrices, pSun);
 
-    meshRender(render->mesh);
+    if (selected) {
+      meshRender(render->mesh);
+    } else {
+      // couldn't select our material? don't attemp again
+      render->mesh->visible = false;
+    };
   };
   
   dynArrayFree(meshesWithAlpha);

@@ -33,6 +33,7 @@
 typedef struct material {
   unsigned int      retainCount;      // retain count for this object
   char              name[50];         // name of our material
+  bool              twoSided;         // is this a two sided material?
   
   shaderInfo *      matShader;        // shader to use for this material
   
@@ -58,7 +59,7 @@ void matSetShader(material * pMat, shaderInfo * pShader);
 void matSetDiffuseMap(material * pMat, texturemap * pTMap);
 void matSetReflectMap(material * pMat, texturemap * pTMap);
 void matSetBumpMap(material * pMat, texturemap * pTMap);
-void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight);
+bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight);
 
 bool matParseMtl(const char * pData, llist * pMaterials);
 
@@ -76,6 +77,7 @@ material * newMaterial(char * pName) {
     newMat->retainCount = 1;
     strcpy(newMat->name, pName);
     newMat->matShader = NULL;
+    newMat->twoSided = false;
     newMat->alpha = 1.0;
     vec3Set(&newMat->matColor, 1.0, 1.0, 1.0);
     vec3Set(&newMat->matSpecColor, 1.0, 1.0, 1.0);
@@ -244,16 +246,25 @@ void matSetBumpMap(material * pMat, texturemap * pTMap) {
   };
 };
 
-void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
+bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
   int     texture = 0;
   
-  if (pMat->matShader == NULL) {
+  if (pMat == NULL) {
+    errorlog(-1, "No material selected!");
+    return false;
+  } else if (pMat->matShader == NULL) {
     errorlog(-1, "No shader setup for this material!");
-    return;
+    return false;
   } else if (pMat->matShader->program == NO_SHADER) {
     errorlog(-1, "No shader compiled for this material!");
-    return;
+    return false;
   };
+
+  if (pMat->twoSided) {
+    glDisable(GL_CULL_FACE);  // disable culling
+  } else {
+    glEnable(GL_CULL_FACE);   // enable culling
+  }
 
   glUseProgram(pMat->matShader->program);
   
@@ -307,6 +318,9 @@ void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   if (pMat->matShader->lightPosId >= 0) {
     glUniform3f(pMat->matShader->lightPosId, pLight->adjPosition.x, pLight->adjPosition.y, pLight->adjPosition.z);       
   };
+  if (pMat->matShader->ambientId >= 0) {
+    glUniform1f(pMat->matShader->ambientId, pLight->ambient);       
+  };
 
   // setup our material
   if (pMat->matShader->alphaId >= 0) {
@@ -357,6 +371,8 @@ void matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
     glUniform1i(pMat->matShader->bumpMapId, texture); 
     texture++;   
   };  
+
+  return true;
 };
 
 // parse data loaded from a wavefront .mtl file
@@ -464,6 +480,7 @@ bool matParseMtl(const char * pData, llist * pMaterials) {
                 if (mat != NULL) {
                   // load our diffuse map, note that it will be retained inside of matSetDiffuseMap!;
                   matSetDiffuseMap(mat, getTextureMapByFileName(line->text + 7, GL_LINEAR, GL_REPEAT, false));
+                  tmapMakeMipMap(mat->diffuseMap);
                 };                
               } else if (varcharCmp(what, "map_refl") == 0) {
                 // our reflect texture map

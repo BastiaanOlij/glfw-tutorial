@@ -77,7 +77,9 @@ void meshRetain(mesh3d * pMesh);
 void meshRelease(mesh3d * pMesh);
 void meshSetMaterial(mesh3d * pMesh, material * pMat);
 GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex);
+GLuint meshAddVNT(mesh3d * pMesh, const vec3 * pVector, const vec3 * pNormal, const vec2 * pCoords);
 void meshFlipNormals(mesh3d * pMesh);
+bool meshAddLine(mesh3d * pMesh, GLuint pA, GLuint pB);
 bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC);
 bool meshAddQuad(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC, GLuint pD);
 void meshFlipFaces(mesh3d * pMesh);
@@ -86,7 +88,7 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers);
 bool meshRender(mesh3d * pMesh);
 
 bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight, bool pAddQuads);
-bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB);
+bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB, int verticesPerFace);
 bool meshMakeSphere(mesh3d * pMesh, GLfloat pRadius);
 
 bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials, mat4 * pAdjust);
@@ -253,6 +255,17 @@ GLuint meshAddVertex(mesh3d * pMesh, const vertex * pVertex) {
   return pMesh->vertices->numEntries - 1;
 };
 
+GLuint meshAddVNT(mesh3d * pMesh, const vec3 * pVector, const vec3 * pNormal, const vec2 * pCoords) {
+  GLuint ret = GL_UNDEF_OBJ;
+  vertex vert;
+
+  vec3Copy(&vert.V, pVector);
+  vec3Copy(&vert.N, pNormal);
+  vec2Copy(&vert.T, pCoords);
+
+  return meshAddVertex(pMesh, &vert);
+};
+
 // flips all normals of the mesh
 void meshFlipNormals(mesh3d * pMesh) {
   int i;
@@ -265,6 +278,33 @@ void meshFlipNormals(mesh3d * pMesh) {
     vertex * v = (vertex *) dynArrayDataAtIndex(pMesh->vertices, i);
     vec3Mult(&v->V, -1.0);
   };
+};
+
+// adds a line (2 indices into vertex array)
+bool meshAddLine(mesh3d * pMesh, GLuint pA, GLuint pB) {
+  if (pMesh == NULL) {
+    return false;
+  } else if (pMesh->verticesPerFace != 2) {
+    // start over
+    pMesh->verticesPerFace = 2;
+    if (pMesh->indices != NULL) {
+      dynArrayFree(pMesh->indices);
+      pMesh->indices = NULL;
+    };
+  };
+
+  if (pMesh->indices == NULL) {
+    pMesh->indices = newDynArray(sizeof(GLuint));
+    if (pMesh->indices == NULL) {
+      return GL_UNDEF_OBJ;
+    };
+  };
+  
+  dynArrayPush(pMesh->indices, &pA);
+  dynArrayPush(pMesh->indices, &pB);
+  pMesh->isLoaded = false;
+  
+  return true;
 };
 
 // adds a face (3 indices into vertex array)
@@ -490,7 +530,9 @@ bool meshRender(mesh3d * pMesh) {
   };
   
   glBindVertexArray(pMesh->VAO);
-  if (pMesh->verticesPerFace == 3) {
+  if (pMesh->verticesPerFace == 2) {
+    glDrawElements(GL_LINES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
+  } else if (pMesh->verticesPerFace == 3) {
     glDrawElements(GL_TRIANGLES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
   } else if (pMesh->verticesPerFace == 4) {
     glDrawElements(GL_PATCHES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
@@ -683,7 +725,7 @@ GLuint cubeIndices[] = {
 #define CUBE_NUM_TRIANGLES (sizeof(cubeIndices) / sizeof(GLuint))
 
 // loads a cube
-bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB) {
+bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDepth, bool pFBLRTB, int verticesPerFace) {
   int i;
   if (pMesh == NULL) {
     return false;
@@ -707,8 +749,22 @@ bool meshMakeCube(mesh3d * pMesh, GLfloat pWidth, GLfloat pHeight, GLfloat pDept
   };
   
   // add our indices
-  for (i = 0; i < CUBE_NUM_TRIANGLES; i += 3) {
-    meshAddFace(pMesh, cubeIndices[i], cubeIndices[i+1], cubeIndices[i+2]);
+  if (verticesPerFace == 2) {
+    // we'll end up with overlapping lines but that is ok... 
+    for (i = 0; i < CUBE_NUM_TRIANGLES; i += 6) {
+      meshAddLine(pMesh, cubeIndices[i], cubeIndices[i+1]);
+      meshAddLine(pMesh, cubeIndices[i+1], cubeIndices[i+2]);
+      meshAddLine(pMesh, cubeIndices[i+2], cubeIndices[i+5]);
+      meshAddLine(pMesh, cubeIndices[i+5], cubeIndices[i]);
+    };
+  } else if (verticesPerFace == 3) {
+    for (i = 0; i < CUBE_NUM_TRIANGLES; i += 3) {
+      meshAddFace(pMesh, cubeIndices[i], cubeIndices[i+1], cubeIndices[i+2]);
+    };
+  } else if (verticesPerFace == 4) {
+    for (i = 0; i < CUBE_NUM_TRIANGLES; i += 6) {
+      meshAddQuad(pMesh, cubeIndices[i], cubeIndices[i+1], cubeIndices[i+5], cubeIndices[i+2]);
+    };
   };
   
   return true;
@@ -937,6 +993,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 dynArrayPush(coords, &vertex);
               } else if (varcharCmp(what, "o") == 0) {
                 // new object
+                errorlog(0, "Found object %s", line->text + 2);
                 
                 // first round of our old...
                 if (objVertices != NULL) {
@@ -957,6 +1014,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 objVertices = newDynArray(sizeof(objVertexIdx));
               } else if (varcharCmp(what, "g") == 0) {
                 // new group
+                errorlog(0, "Found group %s", line->text + 2);
               
                 // first round of our old...
                 if (objVertices != NULL) {
@@ -980,6 +1038,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 if (pMaterials != NULL) {
                   // first we check if we need to create an object and then we start adding our face
                   if (mesh == NULL) {
+                    errorlog(0, "Adding default mesh");
                     mesh = newMesh(0, 0);
                     strcpy(mesh->name, "Default");                
                   };
@@ -987,8 +1046,11 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                     objVertices = newDynArray(sizeof(objVertexIdx));                
                   };
                   
-                  // set our material, if it can't be found NULL is returned which is fine
-                  meshSetMaterial(mesh, getMatByName(pMaterials, line->text + 7));
+                  // we only support one material per object...
+                  if (mesh->material == NULL) {
+                    // set our material, if it can't be found NULL is returned which is fine
+                    meshSetMaterial(mesh, getMatByName(pMaterials, line->text + 7));
+                  };
                 };
               } else if (varcharCmp(what, "s") == 0) {
                 // shininess, ignore for now
@@ -1000,6 +1062,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
               
                 // first we check if we need to create an object and then we start adding our face
                 if (mesh == NULL) {
+                  errorlog(0, "Adding default mesh");
                   mesh = newMesh(0, 0);
                   strcpy(mesh->name, "Default");                
                 };
@@ -1098,8 +1161,6 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
     dynArrayFree(coords);
     coords = NULL;    
   };
-  
-  errorlog(0, "Finished loading meshes");
   
   return true;
 };

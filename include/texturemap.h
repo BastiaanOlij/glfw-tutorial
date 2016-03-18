@@ -35,6 +35,8 @@ typedef struct texturemap {
   GLint             filter;           // filter applied to texture object
   GLint             wrap;             // wrap applied to texture object
   GLuint            textureId;        // ID of our texture object
+  GLuint            depthBufferId;    // ID of our depth texture (if we needed one)
+  GLuint            frameBufferId;    // ID of our framebuffer for render to texture
 } texturemap;
 
 #ifdef __cplusplus
@@ -50,8 +52,10 @@ void tmapRelease(texturemap * pTMap);
 texturemap * getTextureMapByFileName(const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
 bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GLint pWrap, bool pKeepData);
 bool tmapMakeMipMap(texturemap * pTMap);
-bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap);
+bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap, GLint pIntFormat, GLint pFormat, GLint pType);
 vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT);
+bool tmapRenderToTexture(texturemap * pTMap, bool pNeedDepthBuffer);
+void tmapFreeFrameBuffers(texturemap * pTMap);
 
 void tmapReleaseCachedTextureMaps();
 
@@ -75,9 +79,15 @@ texturemap * newTextureMap(const char * pName) {
   texturemap * newTmap = (texturemap *) malloc(sizeof(texturemap));
   if (newTmap != NULL) {
     newTmap->retainCount = 1;
-    newTmap->data = NULL;
     strcpy(newTmap->name, pName);
+    newTmap->width = 0;
+    newTmap->height = 0;
+    newTmap->data = NULL;
+    newTmap->filter = 0;
+    newTmap->wrap = 0;
     glGenTextures(1, &(newTmap->textureId));
+    newTmap->frameBufferId = 0;
+    newTmap->depthBufferId = 0;
 
     // errorlog(0, "Created texture map %s", pName);
   };
@@ -112,7 +122,9 @@ void tmapRelease(texturemap * pTMap) {
 
     return;
   } else {
-    glDeleteTextures(1, &(pTMap->textureId));
+    tmapFreeFrameBuffers(pTMap);
+
+    glDeleteTextures(1, &pTMap->textureId);
 
     if (pTMap->data != NULL) {
       stbi_image_free(pTMap->data);
@@ -211,7 +223,9 @@ bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GL
   };  
 };
 
-bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap) {
+// initializes our texture using a datasource.
+// note that if pData is empty we'll end up with an empty texture
+bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap, GLint pIntFormat, GLint pFormat, GLint pType) {
   // if we haven't got a texture yet, create it, else reuse it
   if (pTMap == NULL) {
     return false;
@@ -228,8 +242,8 @@ bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, i
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pWrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);  
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, pWidth, pHeight, 0, GL_RED, GL_UNSIGNED_BYTE, pData);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pWrap);
+  glTexImage2D(GL_TEXTURE_2D, 0, pIntFormat, pWidth, pHeight, 0, pFormat, pType, pData);    
 
   return true;
 };
@@ -241,9 +255,18 @@ bool tmapMakeMipMap(texturemap * pTMap) {
     return false;
   };
 
+  // make sure we actually use our mimpmapping..
+  if (pTMap->filter == GL_NEAREST) {
+    pTMap->filter = GL_NEAREST_MIPMAP_NEAREST;
+  } else if (pTMap->filter == GL_LINEAR) {
+    pTMap->filter = GL_LINEAR_MIPMAP_LINEAR;
+  };
+
   // generate mipmap, we assume image has been loaded
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pTMap->filter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pTMap->filter);
   glGenerateMipmap(GL_TEXTURE_2D);
 
   return true;
@@ -332,6 +355,65 @@ vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT) {
   return pixel;
 };
 
+// Prepare our texture so we can render to it. 
+// if needed a new framebuffer will be created and made current.
+// the calling routine will be responsible for unbinding the framebuffer.
+bool tmapRenderToTexture(texturemap * pTMap, bool pNeedDepthBuffer) {
+  if (pTMap == NULL) {
+    return false;
+  };
+
+  // create our frame buffer if we haven't already
+  if (pTMap->frameBufferId == 0) {
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0 };
+    GLenum status;
+
+    glGenFramebuffers(1, &pTMap->frameBufferId);
+    glBindFramebuffer(GL_FRAMEBUFFER, pTMap->frameBufferId);
+
+    // bind our texture map
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pTMap->textureId, 0);
+
+    // init and bind our depth buffer
+    if ((pTMap->depthBufferId == 0) && pNeedDepthBuffer) {
+      glGenTextures(1, &pTMap->depthBufferId);
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D, pTMap->depthBufferId);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, pTMap->width, pTMap->height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, pTMap->depthBufferId, 0);
+    };
+
+    // enable our draw buffers...
+    glDrawBuffers(1, drawBuffers);
+
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+      errorlog(status, "Couldn't init framebuffer (errno = %i)", status);
+      tmapFreeFrameBuffers(pTMap);
+      return false;
+    };
+  } else {
+    // reactivate our framebuffer
+    glGenFramebuffers(1, &pTMap->frameBufferId);
+  };
+
+  return true;
+};
+
+// free up frame buffers if we no longer need them
+void tmapFreeFrameBuffers(texturemap * pTMap) {
+  if (pTMap->frameBufferId != 0) {
+    glDeleteFramebuffers(1, &pTMap->frameBufferId);
+    pTMap->frameBufferId = 0;
+  };
+
+  if (pTMap->depthBufferId != 0) {
+    glDeleteTextures(1, &pTMap->depthBufferId);
+    pTMap->depthBufferId = 0;
+  };
+};
 
 // this function releases all texture maps retained in our texture cache. 
 void tmapReleaseCachedTextureMaps() {

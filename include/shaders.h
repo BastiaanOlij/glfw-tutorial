@@ -64,6 +64,7 @@ typedef struct shaderInfo {
   GLint   mvpId;                    // our model view projection matrix
 
   // light info  
+  GLint   ambientId;                // ambient color of our light
   GLint   lightPosId;               // position of our light
 
   // material
@@ -104,6 +105,7 @@ typedef struct shaderMatrices {
 
 // and a structure to hold information about a light
 typedef struct lightSource {
+  float   ambient;                  // ambient factor for our light
   vec3    position;                 // position of our light
   vec3    adjPosition;              // position of our light with view matrix applied
 } lightSource;
@@ -459,6 +461,10 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
   pShader->lightPosId = glGetUniformLocation(pShader->program, "lightPos");
   if (pShader->lightPosId < 0) {
     errorlog(pShader->lightPosId, "Unknown uniform %s:lightPos", pShader->name);
+  };
+  pShader->ambientId = glGetUniformLocation(pShader->program, "ambient");
+  if (pShader->ambientId < 0) {
+    errorlog(pShader->ambientId, "Unknown uniform %s:ambient", pShader->name);
   };
 
   // material

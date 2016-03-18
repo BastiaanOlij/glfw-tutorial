@@ -156,6 +156,9 @@ int main(void) {
       
       // update our stats
       engineUpdate(glfwGetTime());
+
+      // make sure we're not bound to any offscreen framebuffers
+      glBindFramebuffer(GL_FRAMEBUFFER, 0);
       
       // get our window and frame buffer size, we'll move this into GLFWs window resize callbacks eventually
       glfwGetWindowSize(window, &windowWidth, &windowHeight);
