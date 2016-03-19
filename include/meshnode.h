@@ -265,12 +265,13 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const 
   };
   
   if (pNode->mesh != NULL) {
+    renderMesh render;
+
     if (pNode->mesh->visible == false) {
       return false;
     };
 
     // add our mesh
-    renderMesh render;
     render.mesh = pNode->mesh;
     mat4Copy(&render.model, &model);
     render.z = 0.0; // not yet used, need to apply view matrix to calculate

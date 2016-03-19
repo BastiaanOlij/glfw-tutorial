@@ -1,7 +1,5 @@
 #version 330
 
-// need to adjust this, this shader should make the object always point in the direction of the camera
-
 layout (location=0) in vec3 positions;
 layout (location=1) in vec3 normals;
 layout (location=2) in vec2 texcoords;
