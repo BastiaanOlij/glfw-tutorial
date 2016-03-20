@@ -396,7 +396,7 @@ bool tmapRenderToTexture(texturemap * pTMap, bool pNeedDepthBuffer) {
     };
   } else {
     // reactivate our framebuffer
-    glBindFramebuffer(GL_FRAMEBUFFER, &pTMap->frameBufferId);
+    glBindFramebuffer(GL_FRAMEBUFFER, pTMap->frameBufferId);
   };
 
   return true;
