@@ -44,6 +44,9 @@ typedef struct meshNode {
   
   // mesh to render
   mesh3d *      mesh;                 /* mesh to render, NULL is just a positioning node */
+
+  // bounding volume
+  mesh3d *      bounds;               /* if set, this is our bounding box that we check against */
   
   // children
   llist *       children;             /* child nodes */
@@ -54,12 +57,17 @@ typedef struct meshNode {
 extern "C" {
 #endif
 
+void meshNodeSetRenderBounds(bool pSet);
+void meshNodeSetBoundsDebugMaterial(material * pBoundsMat);
+
 meshNode * newMeshNode(const char * pName);
 meshNode * newCopyMeshNode(const char *pName, meshNode * pCopy, bool pDeepCopy);
 llist * newMeshNodeList(void);
 void meshNodeRetain(meshNode * pNode);
 void meshNodeRelease(meshNode * pNode);
 void meshNodeSetMesh(meshNode * pNode, mesh3d * pMesh);
+void meshNodeSetBounds(meshNode * pNode, mesh3d * pBounds);
+void meshNodeMakeBounds(meshNode *pNode);
 void meshNodeAddChild(meshNode * pNode, meshNode * pChild);
 void meshNodeAddChildren(meshNode *pNode, llist * pMeshList);
 void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun);
@@ -69,6 +77,20 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
 #endif
 
 #ifdef MESH_IMPLEMENTATION
+
+bool mNrenderBounds = false;
+material * mNboundsMaterial = NULL;
+
+// enable/disable rendering our bounds
+void meshNodeSetRenderBounds(bool pSet) {
+  mNrenderBounds = pSet;
+};
+
+// sets the material we'll use for rendering our bounding volume for debugging
+// note that we do not retain this and it must be set before we create our bounding volumes!
+void meshNodeSetBoundsDebugMaterial(material * pBoundsMat) {
+  mNboundsMaterial = pBoundsMat;
+};
 
 // create a new mesh node
 meshNode * newMeshNode(const char * pName) {
@@ -80,6 +102,7 @@ meshNode * newMeshNode(const char * pName) {
     newNode->maxDist = 0;
     mat4Identity(&newNode->position);
     newNode->mesh = NULL;
+    newNode->bounds = NULL;
     newNode->children = newMeshNodeList();
     newNode->firstVisOnly = false;
   };
@@ -103,7 +126,9 @@ meshNode * newCopyMeshNode(const char *pName, meshNode * pCopy, bool pDeepCopy) 
     newNode->maxDist = pCopy->maxDist;
     mat4Copy(&newNode->position, &pCopy->position);
     newNode->mesh = NULL; /* start NULL! */
-    meshNodeSetMesh(newNode, pCopy->mesh); /* now assign our mesh, note that we're thus retaining the same mesh as the node we're copying*/
+    meshNodeSetMesh(newNode, pCopy->mesh); /* now assign our mesh, note that we're thus retaining the same mesh as the node we're copying */
+    newNode->bounds = NULL; /* start NULL! */
+    meshNodeSetBounds(newNode, pCopy->bounds); /* now assign our bounds, note that we're thus retaining the same mesh as the node we're copying */
     newNode->children = newMeshNodeList();
     newNode->firstVisOnly = pCopy->firstVisOnly;
 
@@ -156,6 +181,9 @@ void meshNodeRelease(meshNode * pNode) {
   } else {
     // free our mesh if its set
     meshNodeSetMesh(pNode, NULL);
+
+    // free our bounds if its set
+    meshNodeSetBounds(pNode, NULL);
     
     // free our children
     if (pNode->children != NULL) {
@@ -183,6 +211,135 @@ void meshNodeSetMesh(meshNode * pNode, mesh3d * pMesh) {
       meshRetain(pNode->mesh);
     };    
   };  
+};
+
+// set (or unset) our related bounds, the mesh will be release/retained as needed
+void meshNodeSetBounds(meshNode * pNode, mesh3d * pBounds) {
+  if (pNode == NULL) {
+    errorlog(-1, "Attempted to set bounds for a NULL node");
+    return;
+  } else if (pNode->bounds == pBounds) {
+    return;
+  } else {
+    if (pNode->bounds != NULL) {
+      meshRelease(pNode->bounds);
+    };
+    pNode->bounds = pBounds;
+    if (pNode->bounds != NULL) {
+      meshRetain(pNode->bounds);
+    };    
+  };  
+};
+
+void meshNodeGetMinMax(meshNode *pNode, vec3 * pMin, vec3 * pMax, const mat4 * pModel) {
+  llistNode * child;
+  int i;
+
+  if (pNode == NULL) {
+    return; // ignore
+  };
+
+  if (pNode->bounds != NULL) {
+    // this object already has bounds;)
+    if (pNode->bounds->vertices != NULL) {
+      for (i = 0; i < pNode->bounds->vertices->numEntries; i++) {
+        vec3 vertice;
+        vec3 * orgVertice = dynArrayDataAtIndex(pNode->bounds->vertices, i);
+
+        mat4ApplyToVec3(&vertice, orgVertice, pModel);
+
+        if (pMin->x > vertice.x) { pMin->x = vertice.x; };
+        if (pMin->y > vertice.y) { pMin->y = vertice.y; };
+        if (pMin->z > vertice.z) { pMin->z = vertice.z; };
+
+        if (pMax->x < vertice.x) { pMax->x = vertice.x; };
+        if (pMax->y < vertice.y) { pMax->y = vertice.y; };
+        if (pMax->z < vertice.z) { pMax->z = vertice.z; };
+      };
+    };
+  } else {
+    // check our mesh and any child nodes
+    if (pNode->mesh != NULL) {
+      if (pNode->mesh->vertices != NULL) {
+        for (i = 0; i < pNode->mesh->vertices->numEntries; i++) {
+          vec3 vertice;
+          vec3 * orgVertice = dynArrayDataAtIndex(pNode->mesh->vertices, i);
+
+          mat4ApplyToVec3(&vertice, orgVertice, pModel);
+
+          if (pMin->x > vertice.x) { pMin->x = vertice.x; };
+          if (pMin->y > vertice.y) { pMin->y = vertice.y; };
+          if (pMin->z > vertice.z) { pMin->z = vertice.z; };
+
+          if (pMax->x < vertice.x) { pMax->x = vertice.x; };
+          if (pMax->y < vertice.y) { pMax->y = vertice.y; };
+          if (pMax->z < vertice.z) { pMax->z = vertice.z; };
+        };
+      };
+    };
+
+    if (pNode->children != NULL) {
+      llistNode * node = pNode->children->first;
+      
+      while (node != NULL) {
+        meshNode * childNode = (meshNode *)node->data;
+        mat4 model; 
+
+        // make our model matrix
+        mat4Copy(&model, pModel);
+        mat4Multiply(&model, &childNode->position);
+
+        meshNodeGetMinMax(childNode, pMin, pMax, &model);
+
+        node = node->next;
+      };
+    };
+  };
+};
+
+// generate a bounds mesh (for now just cubes)
+void meshNodeMakeBounds(meshNode *pNode) {
+  vec3 minVec, maxVec, tmpVec;
+  mesh3d * mesh;
+  mat4 model;
+
+  // determine our bounds
+  vec3Set(&minVec, 0.0, 0.0, 0.0);
+  vec3Set(&maxVec, 0.0, 0.0, 0.0);
+  mat4Identity(&model);
+  meshNodeGetMinMax(pNode, &minVec, &maxVec, &model);
+
+  // create a cube from this
+  mesh = newMesh(8, 12);
+  meshSetMaterial(mesh, mNboundsMaterial);
+
+  // add our vertices and faces, we're going minimalistic here as we don't really care about normals or texturing
+  meshAddVNT(mesh, vec3Set(&tmpVec, minVec.x, minVec.y, minVec.z), NULL, NULL); // 0
+  meshAddVNT(mesh, vec3Set(&tmpVec, maxVec.x, minVec.y, minVec.z), NULL, NULL); // 1
+  meshAddVNT(mesh, vec3Set(&tmpVec, maxVec.x, maxVec.y, minVec.z), NULL, NULL); // 2
+  meshAddVNT(mesh, vec3Set(&tmpVec, minVec.x, maxVec.y, minVec.z), NULL, NULL); // 3
+
+  meshAddVNT(mesh, vec3Set(&tmpVec, maxVec.x, minVec.y, maxVec.z), NULL, NULL); // 4
+  meshAddVNT(mesh, vec3Set(&tmpVec, minVec.x, minVec.y, maxVec.z), NULL, NULL); // 5
+  meshAddVNT(mesh, vec3Set(&tmpVec, minVec.x, maxVec.y, maxVec.z), NULL, NULL); // 6
+  meshAddVNT(mesh, vec3Set(&tmpVec, maxVec.x, maxVec.y, maxVec.z), NULL, NULL); // 7
+
+  meshAddFace(mesh, 0, 1, 2); // front
+  meshAddFace(mesh, 0, 2, 3);
+  meshAddFace(mesh, 4, 5, 6); // back
+  meshAddFace(mesh, 4, 6, 7);
+
+  meshAddFace(mesh, 0, 5, 4); // bottom
+  meshAddFace(mesh, 1, 0, 4);
+  meshAddFace(mesh, 2, 7, 6); // top
+  meshAddFace(mesh, 3, 2, 6);
+
+  meshAddFace(mesh, 6, 5, 0); // left
+  meshAddFace(mesh, 3, 6, 0);
+  meshAddFace(mesh, 1, 4, 7); // right
+  meshAddFace(mesh, 1, 7, 2);
+
+  meshNodeSetBounds(pNode, mesh);
 };
 
 // add a child node to our node
@@ -231,7 +388,7 @@ typedef struct renderMesh {
 } renderMesh;
 
 // build our no-alpha and alpha render lists based on the contents of our node
-bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const vec3 * pEye, dynarray * pNoAlpha, dynarray * pAlpha) {
+bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shaderMatrices * pMatrices, dynarray * pNoAlpha, dynarray * pAlpha) {
   mat4 model;
   
   // is there anything to do?
@@ -248,13 +405,17 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const 
   // check our distance
   if (pNode->maxDist > 0) {
     float distance;
-    vec3  pos;
+    vec3  pos, eye;
 
     // first get our position from our model matrix
     vec3Set(&pos, model.m[3][0], model.m[3][1], model.m[3][2]);
 
+    // then get our eye position
+    shdMatGetEyePos(pMatrices, &eye);
+
+
     // subtract our camera position to get our relative position
-    vec3Sub(&pos, pEye);
+    vec3Sub(&pos, &eye);
 
     // and get our distance
     distance = vec3Lenght(&pos);
@@ -264,6 +425,33 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const 
     };
   };
   
+  if (pNode->bounds != NULL) {
+    mat4 mvp;
+
+    mat4Copy(&mvp, shdMatGetViewProjection(pMatrices));
+    mat4Multiply(&mvp, &model);
+    if (meshTestVolume(pNode->bounds, &mvp) == false) {
+      // yes we're not rendering but we did pass our LOD test so we're done...
+      return true;
+    };
+
+    if (mNrenderBounds) {
+      renderMesh render;
+
+      // make sure we don't loose our buffers
+      if (pNode->bounds->isLoaded == false) {
+        meshCopyToGL(pNode->bounds, false);
+      };
+
+      // add our mesh
+      render.mesh = pNode->bounds;
+      mat4Copy(&render.model, &model);
+      render.z = 0.0; // not yet used, need to apply view matrix to calculate
+
+      dynArrayPush(pAlpha, &render); // this copies our structure
+    };
+  };
+
   if (pNode->mesh != NULL) {
     renderMesh render;
 
@@ -289,7 +477,7 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const 
     llistNode * node = pNode->children->first;
     
     while (node != NULL) {
-      bool visible = meshNodeBuildRenderList((meshNode *) node->data, &model, pEye, pNoAlpha, pAlpha);
+      bool visible = meshNodeBuildRenderList((meshNode *) node->data, &model, pMatrices, pNoAlpha, pAlpha);
 
       if (pNode->firstVisOnly && visible) {
         // we've rendered our first visible child, ignore the rest!
@@ -307,16 +495,12 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, const 
 void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun) {
   dynarray *      meshesWithoutAlpha  = newDynArray(sizeof(renderMesh));
   dynarray *      meshesWithAlpha     = newDynArray(sizeof(renderMesh));
-  vec3            eye;
   mat4            model;
   int             i;
 
-  // get our camera position
-  shdMatGetEyePos(pMatrices, &eye);
-
   // prepare our array with things to render....
   mat4Identity(&model);
-  meshNodeBuildRenderList(pNode, &model, &eye, meshesWithoutAlpha, meshesWithAlpha);
+  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, meshesWithAlpha);
   
   // now render no-alpha
   glDisable(GL_BLEND);

@@ -48,6 +48,7 @@ vec3          camera_lookat =  { 0.0, 1000.0, 0.0 };
 // and some runtime variables.
 bool          wireframe = false;
 bool          showinfo = true;
+bool          bounds = false;
 double        frames = 0.0f;
 double        fps = 0.0f;
 double        lastframes = 0.0f;
@@ -242,6 +243,9 @@ void addTieBombers(const char *pModelPath) {
     mat4Translate(&tieNodes[0]->position, vec3Set(&tmpvector, 0.0, 1500.0, 0.0));
     meshNodeAddChildren(tieNodes[0], meshes);
 
+    // create a bounding box for our tie-bomber
+    meshNodeMakeBounds(tieNodes[0]);
+
     // and add it to our scene, note that we could free up our tie-bomber node here as it is references by our scene
     // but we keep it so we can interact with them.
     meshNodeAddChild(scene, tieNodes[0]);
@@ -307,7 +311,11 @@ void addTrees(const char *pModelPath) {
   meshNode *    treeLod1 = NULL;
   meshNode *    treeLod2 = NULL;
   meshNode *    treeLod3 = NULL;
-  int           i;
+  meshNode *    treeGroups[101][101];
+  int           i, j, tree;
+
+  // zero out our tree groups
+  memset(treeGroups, 0, sizeof(treeGroups));
 
   // load our tree obj files
   text = loadFile(pModelPath, "TreeLOD1.obj");
@@ -324,7 +332,8 @@ void addTrees(const char *pModelPath) {
     // and package as a tree node
     treeLod1 = newMeshNode("treeLod1");
     treeLod1->maxDist = 5000.0;
-    meshNodeAddChildren(treeLod1, meshes); 
+    meshNodeAddChildren(treeLod1, meshes);
+    meshNodeMakeBounds(treeLod1);
 
     // and free up what we no longer need
     llistFree(meshes);
@@ -346,6 +355,7 @@ void addTrees(const char *pModelPath) {
     treeLod2 = newMeshNode("treeLod2");
     treeLod2->maxDist = 15000.0;
     meshNodeAddChildren(treeLod2, meshes); 
+    meshNodeMakeBounds(treeLod2);
 
     // and free up what we no longer need
     llistFree(meshes);
@@ -415,7 +425,9 @@ void addTrees(const char *pModelPath) {
     meshCopyToGL(mesh, true);
 
     treeLod3 = newMeshNode("treeLod3");
+    treeLod3->maxDist = 30000.0;
     meshNodeSetMesh(treeLod3, mesh);
+    // no point in adding bounds to LOD3, our shape is simpler then the box!
 
     // cleanup
     matRelease(mat);
@@ -424,37 +436,63 @@ void addTrees(const char *pModelPath) {
   };
 
   // add some trees
-  for (i = 0; i < 1000; i++) {
-    meshNode * tree;
+  for (tree = 0; tree < 5000; tree++) {
+    meshNode * treeNode;
     char       nodeName[100];
 
     // create our node
-    sprintf(nodeName, "tree_%d", i);
-    tree = newMeshNode(nodeName);
-    tree->firstVisOnly = true; // only render the highest LOD
+    sprintf(nodeName, "tree_%d", tree);
+    treeNode = newMeshNode(nodeName);
+    treeNode->firstVisOnly = true; // only render the highest LOD
 
     // add our subnodes
     if (treeLod1 != NULL) {
-      meshNodeAddChild(tree, treeLod1);
+      meshNodeAddChild(treeNode, treeLod1);
     };
     if (treeLod2 != NULL) {
-      meshNodeAddChild(tree, treeLod2);
+      meshNodeAddChild(treeNode, treeLod2);
     };
     if (treeLod3 != NULL) {
-      meshNodeAddChild(tree, treeLod3);
+      meshNodeAddChild(treeNode, treeLod3);
     };
 
     // position our node
-    tmpvector.x = randomF(-30000.0, 30000.0);
-    tmpvector.z = randomF(-30000.0, 30000.0);
+    tmpvector.x = randomF(-50000.0, 50000.0);
+    tmpvector.z = randomF(-50000.0, 50000.0);
     tmpvector.y = getHeight(tmpvector.x, tmpvector.z) - 15.0;
-
-    mat4Translate(&tree->position, &tmpvector);
+    mat4Translate(&treeNode->position, &tmpvector);
 
     // and add to our scene
-    meshNodeAddChild(scene, tree);
+    // meshNodeAddChild(scene, treeNode);
 
-    meshNodeRelease(tree);
+    // add to our tree groups
+    i = (tmpvector.x + 50000.0) / 5000.0;
+    j = (tmpvector.z + 50000.0) / 5000.0;
+    if (treeGroups[i][j] == NULL) {
+      sprintf(nodeName, "treeGroup_%d_%d", i, j);
+      treeGroups[i][j] = newMeshNode(nodeName);
+
+      // position our node
+      tmpvector.x = (5000.0 * i) - 50000.0;
+      tmpvector.z = (5000.0 * j) - 50000.0;
+      tmpvector.y = getHeight(tmpvector.x, tmpvector.z) - 15.0;
+      mat4Translate(&treeGroups[i][j]->position, &tmpvector);
+
+      // set a maximum distance as we wouldn't be rendering any trees if it's this far away
+      treeGroups[i][j]->maxDist = 35000.0;
+
+      // and add to our scene
+      meshNodeAddChild(scene, treeGroups[i][j]);
+    };
+
+    // and now reposition our tree and add to our group
+    treeNode->position.m[3][0] -= treeGroups[i][j]->position.m[3][0];
+    treeNode->position.m[3][1] -= treeGroups[i][j]->position.m[3][1];
+    treeNode->position.m[3][2] -= treeGroups[i][j]->position.m[3][2];
+    meshNodeAddChild(treeGroups[i][j], treeNode);
+
+    // and we no longer need this
+    meshNodeRelease(treeNode);
   };
 
   // free our trees, we don't need to hang on to it anymore
@@ -466,6 +504,15 @@ void addTrees(const char *pModelPath) {
   };
   if (treeLod3 != NULL) {
     meshNodeRelease(treeLod3);
+  };
+  for (j = 0; j < 101; j++) {
+    for (i = 0; i < 101; i++) {
+      if (treeGroups[i][j] != NULL) {
+        meshNodeMakeBounds(treeGroups[i][j]);
+
+        meshNodeRelease(treeGroups[i][j]);
+      };
+    };
   };
 };
 
@@ -491,6 +538,17 @@ void load_objects() {
   mat = newMaterial("Default");
   matSetShader(mat, colorShader);
   llistAddTo(materials, mat);
+  matRelease(mat);
+  mat = NULL;
+
+  // create a material for rendering bounds
+  mat = newMaterial("Bounds");
+  matSetShader(mat, colorShader);
+  vec3Set(&mat->matColor, 0.0, 1.0, 0.0);
+  mat->alpha = 0.5;
+  mat->shininess = 0.0;
+  llistAddTo(materials, mat);
+  meshNodeSetBoundsDebugMaterial(mat);
   matRelease(mat);
   mat = NULL;
 
@@ -599,7 +657,7 @@ void engineLoad() {
   load_shaders();
   
   // setup our light
-  vec3Set(&sun.position, 100000.0, 100000.0, 0.00);
+  vec3Set(&sun.position, -100000.0, 100000.0, -50000.00);
   sun.ambient = 0.3;
   
   // load our objects
@@ -835,6 +893,8 @@ void engineKeyPressed(int pKey) {
   } else if (pKey == GLFW_KEY_I) {
     // toggle info
     showinfo = !showinfo;
+  } else if (pKey == GLFW_KEY_B) {
+    bounds = !bounds;
+    meshNodeSetRenderBounds(bounds);
   };
-
 };

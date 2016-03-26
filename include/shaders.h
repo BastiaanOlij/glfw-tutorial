@@ -84,6 +84,9 @@ typedef struct shaderMatrices {
   mat4    model;                    // model matrix
 
   // calculated
+  bool    updViewProj;              // need to update our view projection matrix?
+  mat4    viewProj;                 // view projection matrix
+
   bool    updInvView;               // need to update the inverse of our view?
   mat4    invView;                  // inverse of our view
 
@@ -130,6 +133,7 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram);
 void shdMatSetProjection(shaderMatrices * pShdMat, const mat4 * pProjection);
 void shdMatSetView(shaderMatrices * pShdMat, const mat4 * pView);
 void shdMatSetModel(shaderMatrices * pShdMat, const mat4 * pModel);
+mat4 * shdMatGetViewProjection(shaderMatrices * pShdMat);
 mat4 * shdMatGetInvView(shaderMatrices * pShdMat);
 vec3 * shdMatGetEyePos(shaderMatrices * pShdMat, vec3 * pEyePos);
 mat4 * shdMatGetModelView(shaderMatrices * pShdMat);
@@ -511,11 +515,13 @@ void shdMatSetProjection(shaderMatrices * pShdMat, const mat4 * pProjection) {
   // need to improve this to skip if our matrix isn't changing
   mat4Copy(&pShdMat->projection, pProjection);
   pShdMat->updMvp = true;
+  pShdMat->updViewProj = true;
 };
 
 void shdMatSetView(shaderMatrices * pShdMat, const mat4 * pView) {
   // need to improve this to skip if our matrix isn't changing
   mat4Copy(&pShdMat->view, pView);
+  pShdMat->updViewProj = true;
   pShdMat->updInvView = true;
   pShdMat->updModelView = true;
   pShdMat->updInvModelView = true;
@@ -532,6 +538,17 @@ void shdMatSetModel(shaderMatrices * pShdMat, const mat4 * pModel) {
   pShdMat->updMvp = true;
   pShdMat->updNormal = true;
   pShdMat->updNormView = true;
+};
+
+mat4 * shdMatGetViewProjection(shaderMatrices * pShdMat) {
+  if (pShdMat->updViewProj) {
+    mat4Copy(&pShdMat->viewProj, &pShdMat->projection);
+    mat4Multiply(&pShdMat->viewProj, &pShdMat->view);
+
+    pShdMat->updViewProj = false;
+  };
+  
+  return &pShdMat->viewProj;
 };
 
 mat4 * shdMatGetInvView(shaderMatrices * pShdMat) {

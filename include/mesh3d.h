@@ -83,8 +83,10 @@ bool meshAddLine(mesh3d * pMesh, GLuint pA, GLuint pB);
 bool meshAddFace(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC);
 bool meshAddQuad(mesh3d * pMesh, GLuint pA, GLuint pB, GLuint pC, GLuint pD);
 void meshFlipFaces(mesh3d * pMesh);
-void meshCenter(mesh3d *pMesh);
+void meshCenter(mesh3d * pMesh);
+void meshOffset(mesh3d * pMesh, const vec3 * pOffset);
 bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers);
+bool meshTestVolume(mesh3d * pMesh, const mat4 * pMVP);
 bool meshRender(mesh3d * pMesh);
 
 bool meshMakePlane(mesh3d * pMesh, int pHorzTiles, int pVertTiles, float pWidth, float pHeight, bool pAddQuads);
@@ -260,8 +262,17 @@ GLuint meshAddVNT(mesh3d * pMesh, const vec3 * pVector, const vec3 * pNormal, co
   vertex vert;
 
   vec3Copy(&vert.V, pVector);
-  vec3Copy(&vert.N, pNormal);
-  vec2Copy(&vert.T, pCoords);
+  if (pNormal != NULL) {
+    vec3Copy(&vert.N, pNormal);
+  } else {
+    vec3Copy(&vert.N, pVector);
+    vec3Normalise(&vert.N);
+  };
+  if (pCoords != NULL) {
+    vec2Copy(&vert.T, pCoords);    
+  } else {
+    vec2Set(&vert.T, 0.0, 0.0);
+  };
 
   return meshAddVertex(pMesh, &vert);
 };
@@ -407,7 +418,7 @@ void meshFlipFaces(mesh3d * pMesh){
 };
 
 // centers our mesh and adjust our model matrix accordingly
-void meshCenter(mesh3d *pMesh) {
+void meshCenter(mesh3d * pMesh) {
   if (pMesh == NULL) {
     // nothing much we can do here
   } else if (pMesh->vertices == NULL) {
@@ -434,6 +445,22 @@ void meshCenter(mesh3d *pMesh) {
 
     // adjust our matrix
     mat4Translate(&pMesh->defModel, &center);
+  };
+};
+
+// moves all vertices of a mesh
+void meshOffset(mesh3d * pMesh, const vec3 * pOffset) {
+  if (pMesh == NULL) {
+    // nothing much we can do here
+  } else if (pMesh->vertices == NULL) {
+    // can't do anything here
+  } else if (pMesh->vertices->numEntries != 0) {
+    int i;
+    for (i = 0; i < pMesh->vertices->numEntries; i++) {
+      vec3 * vertice = dynArrayDataAtIndex(pMesh->vertices, i);
+
+      vec3Add(vertice, pOffset);
+    };
   };
 };
 
@@ -504,6 +531,82 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
   pMesh->canRender = true;
   pMesh->isLoaded = true;
   return true;
+};
+
+void swap(int * a, int * b) {
+  int s = *a;
+  *a = *b;
+  *b = s;
+};
+
+// assume our mesh is a bounding volume, do a CPU based test to see if any part of the volume would be onscreen
+bool meshTestVolume(mesh3d * pMesh, const mat4 * pMVP) {
+  vec3 *  verts = NULL;
+  int     i;
+  bool    infront = false;
+
+  if (pMesh == NULL) {
+    return false;
+  } else if (pMesh->vertices->numEntries == 0) {
+    return false;
+  } else if (pMesh->verticesPerFace != 3) {
+    return false;
+  };
+
+  // first project our vertices to screen coordinates
+  verts = (vec3 *) malloc(sizeof(vec3) * pMesh->vertices->numEntries);
+  if (verts == NULL) {
+    return false;
+  };
+  for (i = 0; i< pMesh->vertices->numEntries; i++) {
+    mat4ApplyToVec3(&verts[i], (vec3 *)dynArrayDataAtIndex(pMesh->vertices,i), pMVP);
+    if (verts[i].z > 0.0) {
+      if ((verts[i].x >= -1.0) && (verts[i].x <= 1.0) && (verts[i].y >= -1.0) && (verts[i].y <= 1.0)) {
+        // on screen, no need to test further ;)
+        free(verts);
+        return true;
+      } else {
+        // we found a vertice thats potentially in front of the camera
+        infront = true;
+      };
+    };
+  };
+
+  // if atleast one vertice lies infront of our camera...
+  if (infront) {
+    // now test our faces
+    for (i = 0; i < pMesh->indices->numEntries; i += 3) {
+      int a = *((int *)dynArrayDataAtIndex(pMesh->indices, i));
+      int b = *((int *)dynArrayDataAtIndex(pMesh->indices, i+1));
+      int c = *((int *)dynArrayDataAtIndex(pMesh->indices, i+2));
+
+      // we should check if we cross our near-Z-plane here and cut our triangle if so.
+
+      // sort them horizontally a is left most, c is right most, b is in the middle
+      if (verts[a].x > verts[b].x) swap(&a,&b);
+      if (verts[a].x > verts[c].x) swap(&a,&c);
+      if (verts[b].x > verts[c].x) swap(&b,&c);
+
+      if (verts[a].x > 1.0) {
+        // completely offscreen to the right
+      } else if (verts[c].x < -1.0) {
+        // completely offscreen to the left
+      } else if ((verts[a].y < -1.0) && (verts[b].y < -1.0) && (verts[c].y < -1.0)) {
+        // off the top off the screen
+      } else if ((verts[a].y > 1.0) && (verts[b].y > 1.0) && (verts[c].y > 1.0)) {
+        // off the bottom off the screen
+      } else {
+        // For now assume anything else is on screen, there are some edge cases that give a false positive
+        // but checking those won't increase things alot...
+        free(verts);
+        return true;
+      };
+    };
+  };
+
+  // if we get this far its false..
+  free(verts);
+  return false;
 };
 
 // render our mesh
