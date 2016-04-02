@@ -13,12 +13,14 @@ in TE_OUT {
   vec2 T;
   vec3 N;
   vec4 V;
+  vec4 Vs;
 } gs_in[];
 
 out GS_OUT {
   vec2  T;
   vec3  N;
   vec4  V;
+  vec4  Vs;
 } gs_out;
 
 void main() {
@@ -28,6 +30,7 @@ void main() {
     gs_out.T  = gs_in[i].T;
     gs_out.N  = gs_in[i].N;
     gs_out.V  = gs_in[i].V;
+    gs_out.Vs = gs_in[i].Vs;
     EmitVertex();
   }
   EndPrimitive();  

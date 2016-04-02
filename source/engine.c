@@ -36,6 +36,8 @@ shaderInfo *  colorShader = NULL;
 shaderInfo *  texturedShader = NULL;
 shaderInfo *  reflectShader = NULL;
 shaderInfo *  billboardShader = NULL;
+shaderInfo *  solidShadow = NULL;
+shaderInfo *  textureShadow = NULL;
 
 // lights
 lightSource   sun;
@@ -129,10 +131,19 @@ void load_shaders() {
   colorShader = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "flatcolor.fs");
   texturedShader = newShader("textured", "standard.vs", NULL, NULL, NULL, "textured.fs");
   reflectShader = newShader("reflect", "standard.vs", NULL, NULL, NULL, "reflect.fs");
-  billboardShader = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "textured.fs");
+  billboardShader = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "billboard.fs");
+
+  solidShadow = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "solidshadow.fs");
+  textureShadow = newShader("textureshadow", "shadow.vs", NULL, NULL, NULL, "textureshadow.fs");
 };
 
 void unload_shaders() {
+  if (textureShadow != NULL) {
+    shaderRelease(textureShadow);
+  };
+  if (solidShadow != NULL) {
+    shaderRelease(solidShadow);
+  };
   if (billboardShader != NULL) {
     shaderRelease(billboardShader);
   };
@@ -175,7 +186,7 @@ void initHMap() {
   tmapRetain(heightMap);
 
   mat = newMaterial("hmap");                  // create a material for our heightmap
-  matSetShader(mat, hmapShader);              // texture shader for now
+  matSetShader(mat, hmapShader);              // texture shader for now, we do not set a shadow shader
   matSetDiffuseMap(mat, getTextureMapByFileName("grass.jpg", GL_LINEAR, GL_REPEAT, false));
   matSetBumpMap(mat, heightMap);
 
@@ -202,6 +213,7 @@ void initSkybox() {
 
   mat = newMaterial("skybox");                // create a material for our skybox
   matSetShader(mat, skyboxShader);            // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
+  // we also do not set a shadow shader
   matSetDiffuseMap(mat, getTextureMapByFileName("skybox.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false)); // load our texture map (courtesy of http://rbwhitaker.wikidot.com/texture-library)
  
   mesh = newMesh(24, 36);                     // init our cube with enough space for our buffers
@@ -408,7 +420,7 @@ void addTrees(const char *pModelPath) {
 
     // create our material
     mat = newMaterial("treeLod3");
-    matSetShader(mat, billboardShader);
+    matSetShader(mat, billboardShader); // set our billboard shader, we do not set a shadow shader
     matSetDiffuseMap(mat, tmap);
     mat->shininess = 0.0;
 
@@ -516,6 +528,47 @@ void addTrees(const char *pModelPath) {
   };
 };
 
+void addShadowMapObj() {
+  material *    mat;
+  mesh3d *      mesh;
+  meshNode *    node;
+  vec3          normal, tmpvector;
+  vec2          t;
+
+  // create our material
+  mat = newMaterial("test");
+  matSetShader(mat, billboardShader); // set our billboard shader, we do not set a shadow shader
+  matSetDiffuseMap(mat, sun.shadowMap);
+  mat->shininess = 0.0;
+
+  // create our mesh
+  mesh = newMesh(4,2);
+  meshSetMaterial(mesh, mat);
+  vec3Set(&normal, 0.0, 0.0, 1.0);
+  meshAddVNT(mesh, vec3Set(&tmpvector, -500.0, 1000.0, 0.0), &normal, vec2Set(&t, 0.0, 0.0));
+  meshAddVNT(mesh, vec3Set(&tmpvector,  500.0, 1000.0, 0.0), &normal, vec2Set(&t, 1.0, 0.0));
+  meshAddVNT(mesh, vec3Set(&tmpvector,  500.0,    0.0, 0.0), &normal, vec2Set(&t, 1.0, 1.0));
+  meshAddVNT(mesh, vec3Set(&tmpvector, -500.0,    0.0, 0.0), &normal, vec2Set(&t, 0.0, 1.0));
+  meshAddFace(mesh, 0, 1, 2);
+  meshAddFace(mesh, 0, 2, 3);
+  meshCopyToGL(mesh, true);
+
+  node = newMeshNode("test");
+  meshNodeSetMesh(node, mesh);
+
+  // position our node
+  tmpvector.x = 0.0;
+  tmpvector.z = 0.0;
+  tmpvector.y = getHeight(tmpvector.x, tmpvector.z) - 15.0;
+  mat4Translate(&node->position, &tmpvector);
+
+  meshNodeAddChild(scene, node);
+
+  meshNodeRelease(node);
+  meshRelease(mesh);
+  matRelease(mat);
+};
+
 void load_objects() {
   char          modelPath[1024];
   char *        text;
@@ -537,18 +590,8 @@ void load_objects() {
   // create our default material, make sure it's the first one
   mat = newMaterial("Default");
   matSetShader(mat, colorShader);
+  matSetShadowShader(mat, solidShadow);
   llistAddTo(materials, mat);
-  matRelease(mat);
-  mat = NULL;
-
-  // create a material for rendering bounds
-  mat = newMaterial("Bounds");
-  matSetShader(mat, colorShader);
-  vec3Set(&mat->matColor, 0.0, 1.0, 0.0);
-  mat->alpha = 0.5;
-  mat->shininess = 0.0;
-  llistAddTo(materials, mat);
-  meshNodeSetBoundsDebugMaterial(mat);
   matRelease(mat);
   mat = NULL;
 
@@ -565,7 +608,6 @@ void load_objects() {
       
     free(text);
   };
-
   // we render our leaves two sided
   mat = getMatByName(materials, "Leaves");
   if (mat != NULL) {
@@ -577,16 +619,31 @@ void load_objects() {
   while (lnode != NULL) {
     mat = (material * ) lnode->data;
 
+    // assign both solid and shadow shaders, note that our shadow shader will be ignored for transparent shadows
     if (mat->reflectMap != NULL) {  
       matSetShader(mat, reflectShader);
+      matSetShadowShader(mat, solidShadow);
     } else if (mat->diffuseMap != NULL) {          
       matSetShader(mat, texturedShader);
+      matSetShadowShader(mat, textureShadow);
     } else {
       matSetShader(mat, colorShader);
+      matSetShadowShader(mat, solidShadow);
     };
     
     lnode = lnode->next;
   };
+
+  // create a material for rendering bounds (we moved this down because we do not want a shadow shader!)
+  mat = newMaterial("Bounds");
+  matSetShader(mat, colorShader);
+  vec3Set(&mat->matColor, 0.0, 1.0, 0.0);
+  mat->alpha = 0.5;
+  mat->shininess = 0.0;
+  llistAddTo(materials, mat);
+  meshNodeSetBoundsDebugMaterial(mat);
+  matRelease(mat);
+  mat = NULL;
 
   // create our root node
   scene = newMeshNode("scene");
@@ -602,6 +659,9 @@ void load_objects() {
 
     // And create our skybox, we no longer add this to our scene so we can handle this last in our rendering loop
     initSkybox();
+
+    // add test object to show our shadow map
+    // addShadowMapObj();
   }; 
 };
 
@@ -657,8 +717,10 @@ void engineLoad() {
   load_shaders();
   
   // setup our light
-  vec3Set(&sun.position, -100000.0, 100000.0, -50000.00);
+  vec3Set(&sun.position, 100000.0, 100000.0, 0.00);
   sun.ambient = 0.3;
+  sun.shadowMap = newTextureMap("shadowmap");
+  mat4Identity(&sun.shadowMat);
   
   // load our objects
   load_objects();
@@ -671,6 +733,11 @@ void engineLoad() {
 // engineUnload unloads and frees up any data associated with our engine
 void engineUnload() {
   // lets be nice and cleanup
+  if (sun.shadowMap != NULL) {
+    tmapRelease(sun.shadowMap);
+    sun.shadowMap = NULL;
+  };
+
   unload_shaders();
   unload_objects();
   unload_font();
@@ -787,6 +854,85 @@ void engineUpdate(double pSecondsPassed) {
   };
 };
 
+// render our shadow map
+// we'll place this in our engine.h for now but we'll soon make this part of our lighting library
+void renderShadowMapForSun() {
+  // we'll initialize a 4096x4096 shadow map for our sun
+  if (tmapRenderToShadowMap(sun.shadowMap, 4096, 4096)) {
+    mat4            tmpmatrix;
+    vec3            tmpvector;
+    shaderMatrices  matrices;
+    GLint           wasviewport[4];
+
+    // remember our current viewport
+    glGetIntegerv(GL_VIEWPORT, &wasviewport[0]);
+
+    // set our viewport
+    glViewport(0, 0, 4096, 4096);
+
+    // clear our depth buffer
+    glClear(GL_DEPTH_BUFFER_BIT);      
+
+    // enable and configure our backface culling, note that here we cull our front facing polygons
+    // to minimize shading artifacts
+    glEnable(GL_CULL_FACE);   // enable culling
+    glFrontFace(GL_CW);       // clockwise
+    glCullFace(GL_FRONT);     // frontface culling
+
+    // enable our depth test
+    glEnable(GL_DEPTH_TEST);
+    // disable alpha blending  
+    glDisable(GL_BLEND);
+    // solid polygons
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);    
+
+    // need to create our projection matrix first
+    // for our sun we need an orthographic projection as rays of sunlight pretty much are parallel to each other.
+    // if this was a spotlight a perspective projection gives the best result
+    mat4Identity(&tmpmatrix);
+    mat4Ortho(&tmpmatrix, -10000.0, 10000.0, -10000.0, 10000.0, -50000.0, 50000.0);
+//    mat4Ortho(&tmpmatrix, -1000.0, 1000.0, -1000.0, 1000.0, -50000.0, 50000.0);
+    shdMatSetProjection(&matrices, &tmpmatrix);
+
+    // We are going to adjust our sun's position based on our camera position.
+    // We position the sun such that our camera location would be at Z = 0.
+    // Our near plane is actually behind our 'sun' which gives us some wiggleroom.
+    vec3Copy(&sun.adjPosition, &sun.position);
+    vec3Normalise(&sun.adjPosition);  // normalize our sun position vector
+    vec3Mult(&sun.adjPosition, 10000.0); // move the sun far enough away
+    vec3Add(&sun.adjPosition, &camera_eye); // position in relation to our camera
+
+    // Now we can create our view matrix, here we use a lookat matrix from our sun looking towards our camera position.
+    // There is an argument to use our lookat point instead as in worst case scenarios half our of shadowmap could
+    // relate to what is behind our camera but using our lookat point risks not covering enough with our shadowmap.
+    //
+    // Note that for our 'up-vector' we're using an Z-axis aligned vector. This is because our sun will be straight
+    // up at noon and we'd get an unusable view matrix. An Z-axis aligned vector assumes that our sun goes from east
+    // to west along the X/Y axis and the Z of our sun will be 0. Our 'up-vector' thus points due north (or south
+    // depending on your definition).
+    // If you do not align your coordinate system to a compass you'll have to calculate an up-vector that points to your
+    // north or south 
+    mat4Identity(&tmpmatrix);
+    mat4LookAt(&tmpmatrix, &sun.adjPosition, &camera_eye, vec3Set(&tmpvector, 0.0, 0.0, 1.0));
+    shdMatSetView(&matrices, &tmpmatrix);
+
+    // now we override our eye position to be at our camera position, this is important for our LOD calculations
+    shdMatSetEyePos(&matrices, &camera_eye);
+
+    // now remember our view-projection matrix, we need it later on when rendering our scene
+    mat4Copy(&sun.shadowMat, shdMatGetViewProjection(&matrices));
+
+    // and now render our scene for shadow maps (note that we only render materials that have a shadow shader and we ignore transparent objects)
+    if (scene != NULL) {
+      meshNodeShadowMap(scene, &matrices);    
+    };
+
+    // and output back to screen
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(wasviewport[0],wasviewport[1],wasviewport[2],wasviewport[3]);
+  };
+};
+
 // engineRender is called to render our stuff
 // pWidth and pHeight define the size of our drawing buffer
 // pMode is 0 => mono, 1 => left eye, 2 => right eye
@@ -796,6 +942,11 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
   vec3            tmpvector;
   float           left, top;
   int             i;
+
+  // only render our shadow maps once per frame, we can reuse them if we're doing our right eye as well
+  if (pMode != 2) {
+    renderShadowMapForSun();
+  };
 
   // calculate our sun position, we want to do this only once
   mat4ApplyToVec3(&sun.adjPosition, &sun.position, &view);
@@ -820,6 +971,7 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
   mat4Identity(&tmpmatrix);
   // distance between eyes is on average 6.5 cm, this should be setable
   mat4Stereo(&tmpmatrix, 45.0, pRatio, 1.0, 100000.0, 6.5, 200.0, pMode);
+//  mat4Ortho(&tmpmatrix, -15000.0, 15000.0, -15000.0, 15000.0, -50000.0, 50000.0);
   shdMatSetProjection(&matrices, &tmpmatrix); // call our set function to reset our flags
   
   // copy our view matrix into our state

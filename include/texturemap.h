@@ -55,6 +55,7 @@ bool tmapMakeMipMap(texturemap * pTMap);
 bool tmapLoadData(texturemap * pTMap, const unsigned char * pData, int pWidth, int pHeight, GLint pFilter, GLint pWrap, GLint pIntFormat, GLint pFormat, GLint pType);
 vec4 tmapGetPixel(texturemap * pTMap, float pS, float pT);
 bool tmapRenderToTexture(texturemap * pTMap, bool pNeedDepthBuffer);
+bool tmapRenderToShadowMap(texturemap * pTMap, int pWidth, int pHeight);
 void tmapFreeFrameBuffers(texturemap * pTMap);
 
 void tmapReleaseCachedTextureMaps();
@@ -388,11 +389,70 @@ bool tmapRenderToTexture(texturemap * pTMap, bool pNeedDepthBuffer) {
     // enable our draw buffers...
     glDrawBuffers(1, drawBuffers);
 
+    // and check if all went well
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
       errorlog(status, "Couldn't init framebuffer (errno = %i)", status);
       tmapFreeFrameBuffers(pTMap);
       return false;
+    };
+  } else {
+    // reactivate our framebuffer
+    glBindFramebuffer(GL_FRAMEBUFFER, pTMap->frameBufferId);
+  };
+
+  return true;
+};
+
+// Prepare our texture as a shadow map (if needed) and makes our
+// shadow map frame buffer active
+bool tmapRenderToShadowMap(texturemap * pTMap, int pWidth, int pHeight) {
+  if (pTMap == NULL) {
+    return false;
+  };
+
+  // check if we can reuse what we have...
+  if ((pTMap->width != pWidth) || (pTMap->height != pHeight)) {
+    // chuck our current frame buffer JIC.
+    tmapFreeFrameBuffers(pTMap);
+  };
+
+  // create our frame buffer if we haven't already
+  if (pTMap->frameBufferId == 0) {
+    GLenum status;
+
+    pTMap->filter = GL_LINEAR;
+    pTMap->wrap = GL_CLAMP;
+    pTMap->width = pWidth;
+    pTMap->height = pHeight;
+
+    glGenFramebuffers(1, &pTMap->frameBufferId);
+    glBindFramebuffer(GL_FRAMEBUFFER, pTMap->frameBufferId);
+
+    // init our depth buffer
+    glBindTexture(GL_TEXTURE_2D, pTMap->textureId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, pTMap->width, pTMap->height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_TEXTURE_MODE, GL_LUMINANCE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, pTMap->filter);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, pTMap->filter);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, pTMap->wrap);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, pTMap->wrap);    
+
+    // bind our depth texture to our frame buffer
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, pTMap->textureId, 0);
+
+    // and make sure our framebuffer knows we draw nothing else...
+    glDrawBuffer(GL_NONE);
+    glReadBuffer(GL_NONE);
+
+    // and check if all went well
+    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+      errorlog(status, "Couldn't init framebuffer (errno = %i)", status);
+      tmapFreeFrameBuffers(pTMap);
+      return false;
+    } else {
+      errorlog(0, "Created shadow map %i,%i", pWidth, pHeight);
     };
   } else {
     // reactivate our framebuffer

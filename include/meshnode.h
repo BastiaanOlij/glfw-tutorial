@@ -71,6 +71,7 @@ void meshNodeMakeBounds(meshNode *pNode);
 void meshNodeAddChild(meshNode * pNode, meshNode * pChild);
 void meshNodeAddChildren(meshNode *pNode, llist * pMeshList);
 void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun);
+void meshNodeShadowMap(meshNode *pNode, shaderMatrices * pMatrices);
 
 #ifdef __cplusplus
 };
@@ -413,7 +414,6 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
     // then get our eye position
     shdMatGetEyePos(pMatrices, &eye);
 
-
     // subtract our camera position to get our relative position
     vec3Sub(&pos, &eye);
 
@@ -435,7 +435,7 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
       return true;
     };
 
-    if (mNrenderBounds) {
+    if ((mNrenderBounds) && (pAlpha != NULL)) {
       renderMesh render;
 
       // make sure we don't loose our buffers
@@ -465,11 +465,17 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
     render.z = 0.0; // not yet used, need to apply view matrix to calculate
     
     if (pNode->mesh->material == NULL) {
-      dynArrayPush(pNoAlpha, &render); // this copies our structure
+      if (pNoAlpha != NULL) {
+        dynArrayPush(pNoAlpha, &render); // this copies our structure        
+      }
     } else if (pNode->mesh->material->alpha != 1.0) {
-      dynArrayPush(pAlpha, &render); // this copies our structure      
+      if (pAlpha != NULL) {
+        dynArrayPush(pAlpha, &render); // this copies our structure
+      };
     } else {
-      dynArrayPush(pNoAlpha, &render); // this copies our structure      
+      if (pNoAlpha != NULL) {
+        dynArrayPush(pNoAlpha, &render); // this copies our structure      
+      };
     };
   };
   
@@ -501,9 +507,12 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
   // prepare our array with things to render....
   mat4Identity(&model);
   meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, meshesWithAlpha);
-  
+
   // now render no-alpha
   glDisable(GL_BLEND);
+
+  // we should sort our meshesWithoutAlpha list by material here and then only select our material 
+  // if we're switching material  
 
   for (i = 0; i < meshesWithoutAlpha->numEntries; i++) {
     bool selected = true;
@@ -524,11 +533,12 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
     };
   };    
   
-  
   // and render alpha
   glEnable(GL_BLEND);
   glBlendEquation(GL_FUNC_ADD);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  // we should sort our meshesWithAlpha list by distance just in case there is overlap here
   
   for (i = 0; i < meshesWithAlpha->numEntries; i++) {
     bool selected = true;
@@ -546,6 +556,34 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
   };
   
   dynArrayFree(meshesWithAlpha);
+  dynArrayFree(meshesWithoutAlpha);
+};
+
+// render suitable objects to a shadow map
+void meshNodeShadowMap(meshNode *pNode, shaderMatrices * pMatrices) {
+  dynarray *      meshesWithoutAlpha  = newDynArray(sizeof(renderMesh));
+  mat4            model;
+  int             i;
+
+  // prepare our array with things to render, we ignore meshes with alpha....
+  mat4Identity(&model);
+  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, NULL);
+
+  // we should sort our meshesWithoutAlpha list by material here and then only select our material 
+  // if we're switching material  
+  for (i = 0; i < meshesWithoutAlpha->numEntries; i++) {
+    bool selected = true;
+    renderMesh * render = dynArrayDataAtIndex(meshesWithoutAlpha, i);
+  
+    shdMatSetModel(pMatrices, &render->model);
+    if (render->mesh->material != NULL) {
+      selected = matSelectShadow(render->mesh->material, pMatrices);
+      if (selected) {
+        meshRender(render->mesh);
+      };
+    };
+  };
+
   dynArrayFree(meshesWithoutAlpha);
 };
 

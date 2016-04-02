@@ -29,6 +29,15 @@
 #include "shaders.h"
 #include "texturemap.h"
 
+// and a structure to hold information about a light (temporarily moved here)
+typedef struct lightSource {
+  float             ambient;          // ambient factor for our light
+  vec3              position;         // position of our light
+  vec3              adjPosition;      // position of our light with view matrix applied
+  texturemap *      shadowMap;        // shadowmap for this light
+  mat4              shadowMat;        // view-projection matrix for this light
+} lightSource;
+
 // structure for our material info
 typedef struct material {
   unsigned int      retainCount;      // retain count for this object
@@ -36,6 +45,7 @@ typedef struct material {
   bool              twoSided;         // is this a two sided material?
   
   shaderInfo *      matShader;        // shader to use for this material
+  shaderInfo *      shadowShader;     // shader to use for rendering shadows
   
   GLfloat           alpha;            // alpha for our material
   vec3              matColor;         // diffuse color for this material
@@ -56,10 +66,12 @@ void matRetain(material * pMat);
 void matRelease(material * pMat);
 material * getMatByName(llist * pMatList, char * pName);
 void matSetShader(material * pMat, shaderInfo * pShader);
+void matSetShadowShader(material * pMat, shaderInfo * pShader);
 void matSetDiffuseMap(material * pMat, texturemap * pTMap);
 void matSetReflectMap(material * pMat, texturemap * pTMap);
 void matSetBumpMap(material * pMat, texturemap * pTMap);
 bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight);
+bool matSelectShadow(material * pMat, shaderMatrices * pMatrices);
 
 bool matParseMtl(const char * pData, llist * pMaterials);
 
@@ -77,6 +89,7 @@ material * newMaterial(char * pName) {
     newMat->retainCount = 1;
     strcpy(newMat->name, pName);
     newMat->matShader = NULL;
+    newMat->shadowShader = NULL;
     newMat->twoSided = false;
     newMat->alpha = 1.0;
     vec3Set(&newMat->matColor, 1.0, 1.0, 1.0);
@@ -126,6 +139,7 @@ void matRelease(material * pMat) {
 
     // release shader
     matSetShader(pMat, NULL);
+    matSetShadowShader(pMat, NULL);
     
     // and free...
     free(pMat);
@@ -176,6 +190,29 @@ void matSetShader(material * pMat, shaderInfo * pShader) {
   pMat->matShader = pShader;
   if (pMat->matShader != NULL) {
      shaderRetain(pMat->matShader);
+  };
+};
+
+// assign a different shadow shader to our material
+void matSetShadowShader(material * pMat, shaderInfo * pShader) {
+  if (pMat == NULL) {
+    return;
+  };
+
+  // already set? nothing to do!
+  if (pMat->shadowShader == pShader) {
+    return;
+  };
+
+  // out with the old...
+  if (pMat->shadowShader != NULL) {
+     shaderRelease(pMat->shadowShader);
+  };
+
+  // in with the new
+  pMat->shadowShader = pShader;
+  if (pMat->shadowShader != NULL) {
+     shaderRetain(pMat->shadowShader);
   };
 };
 
@@ -321,6 +358,19 @@ bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   if (pMat->matShader->ambientId >= 0) {
     glUniform1f(pMat->matShader->ambientId, pLight->ambient);       
   };
+  if (pMat->matShader->shadowMapId >= 0) {
+    glActiveTexture(GL_TEXTURE0 + texture);
+    if (pLight->shadowMap == NULL) {
+      glBindTexture(GL_TEXTURE_2D, 0);      
+    } else {
+      glBindTexture(GL_TEXTURE_2D, pLight->shadowMap->textureId);
+    }
+    glUniform1i(pMat->matShader->shadowMapId, texture); 
+    texture++;   
+  };
+  if (pMat->matShader->shadowMatId >= 0) {
+    glUniformMatrix4fv(pMat->matShader->shadowMatId, 1, false, (const GLfloat *) pLight->shadowMat.m);
+  };
 
   // setup our material
   if (pMat->matShader->alphaId >= 0) {
@@ -373,6 +423,47 @@ bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   };  
 
   return true;
+};
+
+bool matSelectShadow(material * pMat, shaderMatrices * pMatrices) {
+  int     texture = 0;
+  
+  if (pMat == NULL) {
+    // ignore this, we don't cast shadows
+    return false;
+  } else if (pMat->shadowShader == NULL) {
+    // ignore this, we don't cast shadows
+    return false;
+  } else if (pMat->shadowShader->program == NO_SHADER) {
+    errorlog(-1, "No shadow shader compiled for this material!");
+    return false;
+  };
+
+  if (pMat->twoSided) {
+    glDisable(GL_CULL_FACE);  // disable culling
+  } else {
+    glEnable(GL_CULL_FACE);   // enable culling
+  }
+
+  glUseProgram(pMat->shadowShader->program);
+
+  // we communicate very little to our shadow shaders
+  if (pMat->shadowShader->mvpId >= 0) {
+    glUniformMatrix4fv(pMat->shadowShader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
+  };
+
+  if (pMat->shadowShader->textureMapId >= 0) {
+    glActiveTexture(GL_TEXTURE0 + texture);
+    if (pMat->diffuseMap == NULL) {
+      glBindTexture(GL_TEXTURE_2D, 0);      
+    } else {
+      glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
+    }
+    glUniform1i(pMat->shadowShader->textureMapId, texture); 
+    texture++;   
+  };
+
+  return true;  
 };
 
 // parse data loaded from a wavefront .mtl file

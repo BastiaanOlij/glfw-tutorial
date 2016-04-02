@@ -66,6 +66,8 @@ typedef struct shaderInfo {
   // light info  
   GLint   ambientId;                // ambient color of our light
   GLint   lightPosId;               // position of our light
+  GLint   shadowMapId;              // ID of our shadow map
+  GLint   shadowMatId;              // ID for our shadow matrix
 
   // material
   GLint   alphaId;                  // alpha
@@ -96,6 +98,9 @@ typedef struct shaderMatrices {
   bool    updInvModelView;          // need to update our inverse model view matrix
   mat4    invModelView;             // our inverse model view matrix
 
+  bool    updEyePos;                // need to update our eye position
+  vec3    eyePos;                   // our eye position
+
   bool    updMvp;                   // need to update our model view projection matrix
   mat4    mvp;                      // our model view matrix projection
 
@@ -105,13 +110,6 @@ typedef struct shaderMatrices {
   bool    updNormView;              // need to update our normal view matrix
   mat3    normalView;               // our normal view matrix
 } shaderMatrices;
-
-// and a structure to hold information about a light
-typedef struct lightSource {
-  float   ambient;                  // ambient factor for our light
-  vec3    position;                 // position of our light
-  vec3    adjPosition;              // position of our light with view matrix applied
-} lightSource;
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,6 +131,7 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram);
 void shdMatSetProjection(shaderMatrices * pShdMat, const mat4 * pProjection);
 void shdMatSetView(shaderMatrices * pShdMat, const mat4 * pView);
 void shdMatSetModel(shaderMatrices * pShdMat, const mat4 * pModel);
+void shdMatSetEyePos(shaderMatrices * pShdMat, const vec3 * pEye);
 mat4 * shdMatGetViewProjection(shaderMatrices * pShdMat);
 mat4 * shdMatGetInvView(shaderMatrices * pShdMat);
 vec3 * shdMatGetEyePos(shaderMatrices * pShdMat, vec3 * pEyePos);
@@ -470,6 +469,14 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
   if (pShader->ambientId < 0) {
     errorlog(pShader->ambientId, "Unknown uniform %s:ambient", pShader->name);
   };
+  pShader->shadowMapId = glGetUniformLocation(pShader->program, "shadowMap");
+  if (pShader->shadowMapId < 0) {
+    errorlog(pShader->shadowMapId, "Unknown uniform %s:shadowMap", pShader->name);
+  };
+  pShader->shadowMatId = glGetUniformLocation(pShader->program, "shadowMat");
+  if (pShader->shadowMatId < 0) {
+    errorlog(pShader->shadowMatId, "Unknown uniform %s:shadowMat", pShader->name);
+  };
 
   // material
   pShader->alphaId = glGetUniformLocation(pShader->program, "alpha");
@@ -523,6 +530,7 @@ void shdMatSetView(shaderMatrices * pShdMat, const mat4 * pView) {
   mat4Copy(&pShdMat->view, pView);
   pShdMat->updViewProj = true;
   pShdMat->updInvView = true;
+  pShdMat->updEyePos = true;
   pShdMat->updModelView = true;
   pShdMat->updInvModelView = true;
   pShdMat->updMvp = true;
@@ -532,12 +540,18 @@ void shdMatSetView(shaderMatrices * pShdMat, const mat4 * pView) {
 void shdMatSetModel(shaderMatrices * pShdMat, const mat4 * pModel) {
   // need to improve this to skip if our matrix isn't changing
   mat4Copy(&pShdMat->model, pModel);
-  pShdMat->updInvView = true;
   pShdMat->updModelView = true;
   pShdMat->updInvModelView = true;
   pShdMat->updMvp = true;
   pShdMat->updNormal = true;
   pShdMat->updNormView = true;
+};
+
+// allows us to set an alternative eye position, note that if the view
+// matrix changes afterwards the eye position is re-calculated
+void shdMatSetEyePos(shaderMatrices * pShdMat, const vec3 * pEye) {
+  vec3Copy(&pShdMat->eyePos, pEye);
+  pShdMat->updEyePos = false;
 };
 
 mat4 * shdMatGetViewProjection(shaderMatrices * pShdMat) {
@@ -561,9 +575,14 @@ mat4 * shdMatGetInvView(shaderMatrices * pShdMat) {
 };
 
 vec3 * shdMatGetEyePos(shaderMatrices * pShdMat, vec3 * pEyePos) {
-  mat4 * tmpmatrix = shdMatGetInvView(pShdMat);
-  vec3Set(pEyePos, tmpmatrix->m[3][0], tmpmatrix->m[3][1], tmpmatrix->m[3][2]);
+  if (pShdMat->updEyePos) {
+    mat4 * tmpmatrix = shdMatGetInvView(pShdMat);
+    vec3Set(&pShdMat->eyePos, tmpmatrix->m[3][0], tmpmatrix->m[3][1], tmpmatrix->m[3][2]);
 
+    pShdMat->updEyePos = false;
+  };
+
+  vec3Copy(pEyePos, &pShdMat->eyePos);
   return pEyePos;
 };
 
