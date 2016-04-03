@@ -24,16 +24,35 @@ in vec2           T;                                // coordinates for this frag
 in vec4           Vs;                               // our shadow map coordinates
 out vec4          fragcolor;                        // our output color
 
-// sample our shadow map
-float sampleShadowMap(float pZ, vec2 pCoords) {
-  float bias = 0.00005;
-  float depth = texture(shadowMap, pCoords).x;
-  
-  if (pZ - bias > depth) {
-    return 0.0;
-  } else {
-    return 1.0;
-  };  
+// Precission ring
+//      9 9 9
+//      9 1 2
+//      9 4 4
+const vec2 offsets[] = vec2[](
+  vec2( 0.0000,  0.0000),
+  vec2( 0.0005,  0.0000),
+  vec2( 0.0000,  0.0005),
+  vec2( 0.0005,  0.0005),
+  vec2(-0.0005,  0.0005),
+  vec2(-0.0005,  0.0000),
+  vec2(-0.0005, -0.0005),
+  vec2( 0.0000, -0.0005),
+  vec2(-0.0005, -0.0005)
+);
+
+float samplePCF(float pZ, vec2 pCoords, int pSamples) {
+  float bias = 0.0000005; // our bias
+  float result = 1.0; // our result
+  float deduct = 0.8 / float(pSamples); // deduct if we're in shadow
+
+  for (int i = 0; i < pSamples; i++) {
+    float Depth = texture(shadowMap, pCoords + offsets[i]).x;
+    if (pZ - bias > Depth) {
+      result -= deduct;
+    };  
+  };
+    
+  return result;
 }
 
 // check if we're in shadow..
@@ -43,7 +62,7 @@ float shadow(vec4 pVs) {
   vec3 Proj = pVs.xyz / pVs.w;
   if ((abs(Proj.x)<0.99) && (abs(Proj.y)<0.99) && (abs(Proj.z)<0.99)) {
     // bring it into the range of 0.0 to 1.0 instead of -1.0 to 1.0
-    factor = sampleShadowMap(0.5 * Proj.z + 0.5, vec2(0.5 * Proj.x + 0.5, 0.5 * Proj.y + 0.5));
+    factor = samplePCF(0.5 * Proj.z + 0.5, vec2(0.5 * Proj.x + 0.5, 0.5 * Proj.y + 0.5), 4);
   } else {
     factor = 1.0;
   };
