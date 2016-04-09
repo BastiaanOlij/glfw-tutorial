@@ -28,6 +28,7 @@
 // standard libraries we need...
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdarg.h>
 
@@ -66,8 +67,8 @@ typedef struct shaderInfo {
   // light info  
   GLint   ambientId;                // ambient color of our light
   GLint   lightPosId;               // position of our light
-  GLint   shadowMapId;              // ID of our shadow map
-  GLint   shadowMatId;              // ID for our shadow matrix
+  GLint   shadowMapId[3];           // ID of our shadow maps
+  GLint   shadowMatId[3];           // ID for our shadow matrices
 
   // material
   GLint   alphaId;                  // alpha
@@ -409,6 +410,9 @@ void shaderRelease(shaderInfo * pShader) {
 };
 
 void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
+  int i;
+  char uName[250];
+
   pShader->program = pProgram;
   
   // camera info
@@ -469,15 +473,19 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
   if (pShader->ambientId < 0) {
     errorlog(pShader->ambientId, "Unknown uniform %s:ambient", pShader->name);
   };
-  pShader->shadowMapId = glGetUniformLocation(pShader->program, "shadowMap");
-  if (pShader->shadowMapId < 0) {
-    errorlog(pShader->shadowMapId, "Unknown uniform %s:shadowMap", pShader->name);
+  for (i = 0; i < 3; i++) {
+    sprintf(uName, "shadowMap[%d]", i);
+    pShader->shadowMapId[i] = glGetUniformLocation(pShader->program, uName);
+    if (pShader->shadowMapId[i] < 0) {
+      errorlog(pShader->shadowMapId[i], "Unknown uniform %s:%s", pShader->name, uName);
+    };
+    sprintf(uName, "shadowMat[%d]", i);
+    pShader->shadowMatId[i] = glGetUniformLocation(pShader->program, uName);
+    if (pShader->shadowMatId[i] < 0) {
+      errorlog(pShader->shadowMatId[i], "Unknown uniform %s:%s", pShader->name, uName);
+    };
   };
-  pShader->shadowMatId = glGetUniformLocation(pShader->program, "shadowMat");
-  if (pShader->shadowMatId < 0) {
-    errorlog(pShader->shadowMatId, "Unknown uniform %s:shadowMat", pShader->name);
-  };
-
+  
   // material
   pShader->alphaId = glGetUniformLocation(pShader->program, "alpha");
   if (pShader->alphaId < 0) {

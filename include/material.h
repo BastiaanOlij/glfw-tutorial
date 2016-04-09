@@ -34,8 +34,10 @@ typedef struct lightSource {
   float             ambient;          // ambient factor for our light
   vec3              position;         // position of our light
   vec3              adjPosition;      // position of our light with view matrix applied
-  texturemap *      shadowMap;        // shadowmap for this light
-  mat4              shadowMat;        // view-projection matrix for this light
+  bool              shadowRebuild[3]; // do we need to rebuild our shadow map?
+  vec3              shadowLA[3];      // remembering our lookat point for our shadow map
+  texturemap *      shadowMap[3];     // shadowmaps for this light
+  mat4              shadowMat[3];     // view-projection matrices for this light
 } lightSource;
 
 // structure for our material info
@@ -284,7 +286,7 @@ void matSetBumpMap(material * pMat, texturemap * pTMap) {
 };
 
 bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
-  int     texture = 0;
+  int     texture = 0, i;
   
   if (pMat == NULL) {
     errorlog(-1, "No material selected!");
@@ -358,20 +360,22 @@ bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   if (pMat->matShader->ambientId >= 0) {
     glUniform1f(pMat->matShader->ambientId, pLight->ambient);       
   };
-  if (pMat->matShader->shadowMapId >= 0) {
-    glActiveTexture(GL_TEXTURE0 + texture);
-    if (pLight->shadowMap == NULL) {
-      glBindTexture(GL_TEXTURE_2D, 0);      
-    } else {
-      glBindTexture(GL_TEXTURE_2D, pLight->shadowMap->textureId);
-    }
-    glUniform1i(pMat->matShader->shadowMapId, texture); 
-    texture++;   
+  for (i = 0; i < 3; i++) {
+    if (pMat->matShader->shadowMapId[i] >= 0) {
+      glActiveTexture(GL_TEXTURE0 + texture);
+      if (pLight->shadowMap[i] == NULL) {
+        glBindTexture(GL_TEXTURE_2D, 0);      
+      } else {
+        glBindTexture(GL_TEXTURE_2D, pLight->shadowMap[i]->textureId);
+      }
+      glUniform1i(pMat->matShader->shadowMapId[i], texture); 
+      texture++;   
+    };
+    if (pMat->matShader->shadowMatId[i] >= 0) {
+      glUniformMatrix4fv(pMat->matShader->shadowMatId[i], 1, false, (const GLfloat *) pLight->shadowMat[i].m);
+    };
   };
-  if (pMat->matShader->shadowMatId >= 0) {
-    glUniformMatrix4fv(pMat->matShader->shadowMatId, 1, false, (const GLfloat *) pLight->shadowMat.m);
-  };
-
+  
   // setup our material
   if (pMat->matShader->alphaId >= 0) {
     glUniform1f(pMat->matShader->alphaId, pMat->alpha);      

@@ -14,7 +14,7 @@ layout (quads, fractional_even_spacing, cw) in;
 uniform vec3 eyePos;        // our eye position
 uniform mat4 projection;    // our projection matrix
 uniform mat4 view;          // our view matrix
-uniform mat4 shadowMat;     // our shadow matrix
+uniform mat4 shadowMat[3];  // our shadow matrix
 uniform sampler2D bumpMap;  // our height map
 uniform float mapscale;     // our map scale
 uniform float mapheight;    // our map height
@@ -27,7 +27,7 @@ out TE_OUT {
   vec2 T;
   vec3 N;
   vec4 V;
-  vec4 Vs;
+  vec4 Vs[3];
 } te_out;
 
 // here are our functions again
@@ -73,7 +73,9 @@ void main(void) {
   te_out.N = (view * vec4(te_out.N+eyePos, 1.0)).xyz;
 
   // calculate our shadow vertex
-  te_out.Vs = shadowMat * V;
+  te_out.Vs[0] = shadowMat[0] * V;
+  te_out.Vs[1] = shadowMat[1] * V;
+  te_out.Vs[2] = shadowMat[2] * V;
 
   // now rotate our vertex
   te_out.V = view * V;
