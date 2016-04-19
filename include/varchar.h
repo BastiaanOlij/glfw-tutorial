@@ -20,6 +20,10 @@
 // include support libraries
 #include <stdbool.h>
 
+// our libraries we need
+#include "system.h"
+#include "linkedlist.h"
+
 #define VARCHAR_INCREASE  100
 #define VARCHAR_NOTFOUND  0xffffffff
 
@@ -42,6 +46,10 @@ unsigned int varcharPos(varchar * pVarchar, const char * pFind, unsigned int pSe
 varchar * varcharMid(varchar * pVarchar, unsigned int pStart, unsigned int pLen);
 bool varcharAppend(varchar * pVarchar, const char * pText, unsigned int pLen);
 void varcharTrim(varchar * pVarchar);
+
+llist * newVarcharList();
+llist * newVCListFromString(const char * pText, const char * pDelimiters);
+bool vclistContains(llist * pVCList, const char * pText);
 
 #ifdef __cplusplus
 };
@@ -267,6 +275,74 @@ void varcharTrim(varchar * pVarchar) {
       pVarchar->text[pVarchar->len] = '\0';
     };
   };
+};
+
+// list container for varchars
+// llist * strings = newVarcharList()
+llist * newVarcharList() {
+  llist * varcharList = newLlist((dataRetainFunc) varcharRetain, (dataFreeFunc) varcharRelease);
+  return varcharList;
+};
+
+// list container for varchars created by processing a string
+// empty strings will not be added but duplicate strings will be
+// llist * strings = newVarcharList()
+llist * newVCListFromString(const char * pText, const char * pDelimiters) {
+  llist * varcharList = newVarcharList();
+
+  if (varcharList != NULL) {
+    int    pos = 0;
+
+    while (pText[pos] != 0) {
+      // find our next line
+      char * line = delimitText(pText + pos, pDelimiters);
+      if (line != NULL) {
+        int len = strlen(line);
+
+        varchar * addChar = newVarchar();
+        if (addChar != NULL) {
+          varcharAppend(addChar, line, len);
+
+          llistAddTo(varcharList, addChar);
+        };
+
+        if (pText[pos + len] != 0) {
+          // skip our newline character
+          pos += len + 1;
+        } else {
+          // we found our ending
+          pos += len;
+        };
+
+        free(line);
+      } else {
+        // skip any empty line...
+        pos++;
+      };
+    };
+  };
+
+  return varcharList;
+};
+
+// check if our list contains a string
+bool vclistContains(llist * pVCList, const char * pText) {
+  if ((pVCList != NULL) && (pText != NULL)) {
+    llistNode * node = pVCList->first;
+
+    while (node != NULL) {
+      varchar * text = (varchar *) node->data;
+
+      if (varcharCmp(text, pText) == 0) {
+        return true;
+      };
+
+      node = node->next;
+    };
+  };
+
+  // not found
+  return false;
 };
 
 #endif /* VARCHAR_IMPLEMENTATION */

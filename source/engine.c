@@ -120,21 +120,21 @@ void load_shaders() {
     errorlog(0, "Maximum supported tesselation level: %d", maxTessLevel);
   };
 
-  skyboxShader = newShader("skybox", "skybox.vs", NULL, NULL, NULL, "skybox.fs");
+  skyboxShader = newShader("skybox", "skybox.vs", NULL, NULL, NULL, "skybox.fs", "");
 
   if (maxPatches >= 4) {
-    hmapShader = newShader("hmap", "hmap_ts.vs", "hmap_ts.ts", "hmap_ts.te", "hmap_ts.gs", "hmap_ts.fs");
+    hmapShader = newShader("hmap", "hmap_ts.vs", "hmap_ts.ts", "hmap_ts.te", "hmap_ts.gs", "hmap_ts.fs", "");
   } else {
-    hmapShader = newShader("hmap", "hmap.vs", NULL, NULL, NULL, "hmap.fs");
+    hmapShader = newShader("hmap", "hmap.vs", NULL, NULL, NULL, "hmap.fs", "");
   };
 
-  colorShader = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "flatcolor.fs");
-  texturedShader = newShader("textured", "standard.vs", NULL, NULL, NULL, "textured.fs");
-  reflectShader = newShader("reflect", "standard.vs", NULL, NULL, NULL, "reflect.fs");
-  billboardShader = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "billboard.fs");
+  colorShader = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "standard.fs", "");
+  texturedShader = newShader("textured", "standard.vs", NULL, NULL, NULL, "standard.fs", "textured");
+  reflectShader = newShader("reflect", "standard.vs", NULL, NULL, NULL, "standard.fs", "reflect");
+  billboardShader = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "billboard.fs", "");
 
-  solidShadow = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "solidshadow.fs");
-  textureShadow = newShader("textureshadow", "shadow.vs", NULL, NULL, NULL, "textureshadow.fs");
+  solidShadow = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "");
+  textureShadow = newShader("textureshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "textured");
 };
 
 void unload_shaders() {

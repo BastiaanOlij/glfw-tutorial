@@ -29,9 +29,9 @@
 
 // include support libraries
 #include "system.h"
-#include "varchar.h"
 #include "dynamicarray.h"
 #include "linkedlist.h"
+#include "varchar.h"
 #include "math3d.h"
 #include "texturemap.h"
 #include "shaders.h"

@@ -35,6 +35,7 @@
 // our libraries we need
 #include "system.h"
 #include "math3d.h"
+#include "varchar.h"
 
 // and handy defines
 #define NO_SHADER 0xFFFFFFFF
@@ -42,7 +43,8 @@
 enum shaderErrors {
   SHADER_ERR_UNKNOWN = -1,
   SHADER_ERR_NOCOMPILE = -2,
-  SHADER_ERR_NOLINK = -3
+  SHADER_ERR_NOLINK = -3,
+  SHADER_ERR_NESTED = -4
 };
 
 // structure for encapsulating a shader, note that not all ids need to be present (would be logical to call this struct shader but it's already used in some of the support libraries...)
@@ -119,11 +121,11 @@ extern "C" {
 // support functions
 void shaderSetPath(char * pPath);
 GLuint shaderCompile(GLenum pShaderType, const GLchar* pShaderText);
-GLuint shaderLoad(GLenum pShaderType, const char *pName);
+GLuint shaderLoad(GLenum pShaderType, const char *pName, llist * pDefines);
 GLuint shaderLink(GLuint pNumShaders, ...);
 
 // shader object
-shaderInfo * newShader(const char *pName, const char * pVertexShader, const char * pTessControlShader, const char * pTessEvalShader, const char * pGeoShader, const char * pFragmentShader);
+shaderInfo * newShader(const char *pName, const char * pVertexShader, const char * pTessControlShader, const char * pTessEvalShader, const char * pGeoShader, const char * pFragmentShader, const char *pDefines);
 void shaderRetain(shaderInfo * pShader);
 void shaderRelease(shaderInfo * pShader);
 void shaderSetProgram(shaderInfo * pShader, GLuint pProgram);
@@ -240,15 +242,133 @@ GLuint shaderCompile(GLenum pShaderType, const GLchar * pShaderText) {
   return shader;
 };
 
-GLuint shaderLoad(GLenum pShaderType, const char *pName) {
-  GLuint      shader = NO_SHADER;
-  char *      shaderText = NULL;
+varchar * shaderLoadAndPreprocess(const char *pName, llist * pDefines) {
+  varchar * shaderText = NULL;
 
-  shaderText = loadFile(shaderPath, pName);
+  // create a new varchar object for our shader text
+  shaderText = newVarchar();
   if (shaderText != NULL) {
-    shader = shaderCompile(pShaderType, shaderText);
+    // load the contents of our file
+    char * fileText = loadFile(shaderPath, pName);
 
-    free(shaderText);
+    if (fileText != NULL) {
+      // now loop through our text line by line (we do this with a copy of our pointer)
+      int    pos = 0;
+      bool   addLines = true;
+      int    ifMode = 0; // 0 is not in if, 1 = true condition not found, 2 = true condition found
+
+      while (fileText[pos] != 0) {
+        // find our next line
+        char * line = delimitText(fileText + pos, "\n\r");
+
+        // found a non-empty line?
+        if (line != NULL) {
+          int len = strlen(line);
+
+          // check for any of our preprocessor checks
+          if (memcmp(line, "#include \"", 10) == 0) {
+            if (addLines) {
+              // include this file
+              char * includeName = delimitText(line + 10, "\"");
+              if (includeName != NULL) {
+                varchar * includeText = shaderLoadAndPreprocess(includeName, pDefines);
+                if (includeText != NULL) {
+                  // and append it....
+                  varcharAppend(shaderText, includeText->text, includeText->len);
+                  varcharRelease(includeText);
+                };
+                free(includeName);
+              };
+            };
+          } else if (memcmp(line, "#ifdef ", 7) == 0) {
+            if (ifMode == 0) {
+              char * ifdefined;
+
+              ifMode = 1; // assume not defined....
+              ifdefined = delimitText(line + 7, " ");
+              if (ifdefined != NULL) {
+                // check if our define is in our list of defines
+                if (vclistContains(pDefines, ifdefined)) {
+                  ifMode = 2;
+                };
+                free(ifdefined);
+              };
+              addLines = (ifMode == 2);              
+            } else {
+              errorlog(SHADER_ERR_NESTED, "Can't nest defines in shaders");
+            };
+          } else if (memcmp(line, "#ifndef ", 8) == 0) {
+            if (ifMode == 0) {
+              char * ifnotdefined;
+
+              ifMode = 1; // assume not defined....
+              ifnotdefined = delimitText(line + 7, " ");
+              if (ifnotdefined != NULL) {
+                // check if our define is not in our list of defines
+                if (vclistContains(pDefines, ifnotdefined) == false) {
+                  ifMode = 2;
+                };
+                free(ifnotdefined);
+              };
+              addLines = (ifMode == 2);              
+            } else {
+              errorlog(SHADER_ERR_NESTED, "Can't nest defines in shaders");
+            };
+          } else if (memcmp(line, "#else", 5) == 0) {
+            if (ifMode == 1) {
+              ifMode = 2;
+              addLines = true;
+            } else {
+              addLines = false;
+            };
+          } else if (memcmp(line, "#endif", 6) == 0) {
+            addLines = true;
+            ifMode = 0;
+          } else if (addLines) {
+            // add our line
+            varcharAppend(shaderText, line, len);
+            // add our line delimiter
+            varcharAppend(shaderText, "\r\n", 1);
+          };
+
+          if (fileText[pos + len] != 0) {
+            // skip our newline character
+            pos += len + 1;
+          } else {
+            // we found our ending
+            pos += len;
+          };
+
+          // don't forget to free our line!!!
+          free (line);
+        } else {
+          // skip empty lines...
+          pos++;
+        };
+      };
+
+      // free the text we've loaded, what we need has now been copied into shaderText
+      free(fileText);
+    };
+
+    if (shaderText->text == NULL) {
+      varcharRelease(shaderText);
+      shaderText = NULL;
+    };
+  };
+
+  return shaderText;
+};
+
+GLuint shaderLoad(GLenum pShaderType, const char *pName, llist * pDefines) {
+  GLuint      shader = NO_SHADER;
+  varchar *   shaderText = NULL;
+
+  shaderText = shaderLoadAndPreprocess(pName, pDefines);
+  if (shaderText != NULL) {
+    shader = shaderCompile(pShaderType, shaderText->text);
+
+    varcharRelease(shaderText);
   };
 
   return shader;
@@ -337,9 +457,10 @@ GLuint shaderLink(GLuint pNumShaders, ...) {
 ////////////////////////////////////////////////////////////////////////////////////
 // shader
 
-shaderInfo * newShader(const char *pName, const char * pVertexShader, const char * pTessControlShader, const char * pTessEvalShader, const char * pGeoShader, const char * pFragmentShader) {
+shaderInfo * newShader(const char *pName, const char * pVertexShader, const char * pTessControlShader, const char * pTessEvalShader, const char * pGeoShader, const char * pFragmentShader, const char *pDefines) {
   shaderInfo * newshader = (shaderInfo *)malloc(sizeof(shaderInfo));
   if (newshader != NULL) {
+    llist * defines;
     char    filename[1024];
     int     count = 0;
     GLuint  shaders[5];
@@ -349,26 +470,34 @@ shaderInfo * newShader(const char *pName, const char * pVertexShader, const char
     newshader->program = NO_SHADER;
     strcpy(newshader->name, pName);
 
+    // convert our defines
+    defines = newVCListFromString(pDefines, " \r\n");
+
     // attempt to load our shader by name
     if (pVertexShader != NULL) {
-      shaders[count] = shaderLoad(GL_VERTEX_SHADER, pVertexShader);
+      shaders[count] = shaderLoad(GL_VERTEX_SHADER, pVertexShader, defines);
       if (shaders[count] != NO_SHADER) count++;      
     };
     if (pTessControlShader != NULL) {
-      shaders[count] = shaderLoad(GL_TESS_CONTROL_SHADER, pTessControlShader);
+      shaders[count] = shaderLoad(GL_TESS_CONTROL_SHADER, pTessControlShader, defines);
       if (shaders[count] != NO_SHADER) count++;
     };
     if (pTessEvalShader != NULL) {
-      shaders[count] = shaderLoad(GL_TESS_EVALUATION_SHADER, pTessEvalShader);
+      shaders[count] = shaderLoad(GL_TESS_EVALUATION_SHADER, pTessEvalShader, defines);
       if (shaders[count] != NO_SHADER) count++;
     };
     if (pGeoShader != NULL) {
-      shaders[count] = shaderLoad(GL_GEOMETRY_SHADER, pGeoShader);
+      shaders[count] = shaderLoad(GL_GEOMETRY_SHADER, pGeoShader, defines);
       if (shaders[count] != NO_SHADER) count++;
     };
     if (pFragmentShader != NULL) {
-      shaders[count] = shaderLoad(GL_FRAGMENT_SHADER, pFragmentShader);
+      shaders[count] = shaderLoad(GL_FRAGMENT_SHADER, pFragmentShader, defines);
       if (shaders[count] != NO_SHADER) count++;
+    };
+
+    // no longer need our defines
+    if (defines != NULL) {
+      llistFree(defines);
     };
 
     // attempt to compile our shader

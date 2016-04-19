@@ -107,6 +107,42 @@ char* loadFile(const char* pPath, const char* pFileName) {
   return result;
 };
 
+// gets the portion of the line up to the specified delimiter(s)
+// return NULL on failure or if there is no text
+// returns string on success, calling function is responsible for freeing the text
+char * delimitText(const char *pText, const char *pDelimiters) {
+  int    len = 0;
+  char * result = NULL;
+  bool   found = false;
+  int    delimiterCount;
+
+  delimiterCount = strlen(pDelimiters) + 1; // always include our trailing 0 as a delimiter ;)
+
+  while (!found) {
+    int pos = 0;
+    while ((!found) && (pos < delimiterCount)) {
+      if (pText[len] == pDelimiters[pos]) {
+        found = true;
+      };
+      pos++;
+    };
+
+    if (!found) {
+      len++;
+    };
+  };
+
+  if (len != 0) {
+    result = malloc(len + 1);
+    if (result != NULL) {
+      memcpy(result, pText, len);
+      result[len] = 0;
+    };
+  };
+
+  return result;
+};
+
 #endif /* SYS_IMPLEMENTATION */
 
 #endif /* !systemh */

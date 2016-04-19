@@ -4,82 +4,47 @@
 uniform vec3      lightPos;                         // position of our light after view matrix was applied
 uniform float     ambient = 0.3;		                // ambient factor
 uniform vec3		  lightcol = vec3(1.0, 1.0, 1.0);	  // color of the light of our sun
-uniform sampler2D shadowMap[3];                     // our shadow map
 
 // info about our material
 uniform float     alpha = 1.0;                      // alpha for our material
+#ifdef textured
+uniform sampler2D textureMap;                       // our texture map
+#else
 uniform vec3      matColor = vec3(0.8, 0.8, 0.8);   // color of our material
+#endif
 uniform vec3      matSpecColor = vec3(1.0, 1.0, 1.0); // specular color of our material
 uniform float		  shininess = 100.0;                // shininess
 
+#ifdef reflect
+uniform sampler2D reflectMap;                       // our reflection map
+#endif
+
+// these are in world coordinates
+in vec3           E;                                // normalized vector pointing from eye to V
+in vec3           N;                                // normal vector for our fragment
+
+// these in view
 in vec4           V;                                // position of fragment after modelView matrix was applied
 in vec3           Nv;                               // normal vector for our fragment (inc view matrix)
 in vec2           T;                                // coordinates for this fragment within our texture map
 in vec4           Vs[3];                            // our shadow map coordinates
 out vec4          fragcolor;                        // our output color
 
-// Precision ring
-//      9 9 9
-//      9 1 2
-//      9 4 4
-const vec2 offsets[] = vec2[](
-  vec2( 0.0000,  0.0000),
-  vec2( 0.0005,  0.0000),
-  vec2( 0.0000,  0.0005),
-  vec2( 0.0005,  0.0005),
-  vec2(-0.0005,  0.0005),
-  vec2(-0.0005,  0.0000),
-  vec2(-0.0005, -0.0005),
-  vec2( 0.0000, -0.0005),
-  vec2(-0.0005, -0.0005)
-);
-
-float samplePCF(float pZ, vec2 pCoords, int pMap, int pSamples) {
-  float bias = 0.0000005; // our bias
-  float result = 1.0; // our result
-  float deduct = 0.8 / float(pSamples); // deduct if we're in shadow
-
-  for (int i = 0; i < pSamples; i++) {
-    float Depth = texture(shadowMap[pMap], pCoords + offsets[i]).x;
-    if (pZ - bias > Depth) {
-      result -= deduct;
-    };  
-  };
-    
-  return result;
-}
-
-// check if we're in shadow..
-float shadow(vec4 pVs0, vec4 pVs1, vec4 pVs2) {
-  float factor;
-  
-  vec3 Proj = pVs0.xyz / pVs0.w;
-  if ((abs(Proj.x)<0.99) && (abs(Proj.y)<0.99) && (abs(Proj.z)<0.99)) {
-    // bring it into the range of 0.0 to 1.0 instead of -1.0 to 1.0
-    factor = samplePCF(0.5 * Proj.z + 0.5, vec2(0.5 * Proj.x + 0.5, 0.5 * Proj.y + 0.5), 0, 9);
-  } else {
-    vec3 Proj = pVs1.xyz / pVs1.w;
-    if ((abs(Proj.x)<0.99) && (abs(Proj.y)<0.99) && (abs(Proj.z)<0.99)) {
-      // bring it into the range of 0.0 to 1.0 instead of -1.0 to 1.0
-      factor = samplePCF(0.5 * Proj.z + 0.5, vec2(0.5 * Proj.x + 0.5, 0.5 * Proj.y + 0.5), 1, 4);
-    } else {
-      vec3 Proj = pVs2.xyz / pVs2.w;
-      if ((abs(Proj.x)<0.99) && (abs(Proj.y)<0.99) && (abs(Proj.z)<0.99)) {
-        // bring it into the range of 0.0 to 1.0 instead of -1.0 to 1.0
-        factor = samplePCF(0.5 * Proj.z + 0.5, vec2(0.5 * Proj.x + 0.5, 0.5 * Proj.y + 0.5), 2, 1);
-      } else {
-        factor = 1.0;
-      };
-    };
-  };
-
-  return factor;
-}
+#include "shadowmap.fs"
 
 void main() {
+#ifdef textured
+  // start by getting our color from our texture
+  fragcolor = texture(textureMap, T);  
+  fragcolor.a = fragcolor.a * alpha;
+  if (fragcolor.a < 0.2) {
+    discard;
+  };
+#else
   // Just set our color
   fragcolor = vec4(matColor, alpha);
-  
+#endif
+
   // Get the normalized directional vector between our surface position and our light position
   vec3	L = normalize(lightPos - V.xyz);
   
@@ -106,7 +71,20 @@ void main() {
 		
     specColor = lightcol * matSpecColor * specPower * shadowFactor;
   };
-  
+
+#ifdef reflect
+  // add in our reflection, this is one of the few places where world coordinates are paramount. 
+  vec3  r = reflect(E, N);
+  vec2  rc = vec2((r.x + 1.0) / 4.0, (r.y + 1.0) / 2.0);
+  if (r.z < 0.0) {
+   r.x = 1.0 - r.x;
+  };
+  vec3  reflColor = texture(reflectMap, rc).rgb;
+
+  // and add them all together
+  fragcolor = vec4(clamp(ambientColor+diffuseColor+specColor+reflColor, 0.0, 1.0), fragcolor.a);
+#else
   // and add them all together
   fragcolor = vec4(clamp(ambientColor+diffuseColor+specColor, 0.0, 1.0), fragcolor.a);
+#endif
 }
