@@ -18,7 +18,8 @@
  *
  * Revision history:
  * 0.1  09-03-2015  First version with basic functions
- * 0.2  06-10-2016  Moved shaderSelectProgram into materials
+ * 0.2  06-01-2016  Moved shaderSelectProgram into materials
+ * 0.3  26-04-2016  Moved shaderSelectProgram into materials
  *
  ********************************************************/
 
@@ -328,7 +329,7 @@ varchar * shaderLoadAndPreprocess(const char *pName, llist * pDefines) {
             // add our line
             varcharAppend(shaderText, line, len);
             // add our line delimiter
-            varcharAppend(shaderText, "\r\n", 1);
+            varcharAppend(shaderText, "\n", 1);
           };
 
           if (fileText[pos + len] != 0) {
@@ -366,6 +367,9 @@ GLuint shaderLoad(GLenum pShaderType, const char *pName, llist * pDefines) {
 
   shaderText = shaderLoadAndPreprocess(pName, pDefines);
   if (shaderText != NULL) {
+    errorlog(0, "Loaded %s", pName);
+//    errorlog(0, shaderText->text);
+    
     shader = shaderCompile(pShaderType, shaderText->text);
 
     varcharRelease(shaderText);

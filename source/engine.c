@@ -75,7 +75,7 @@ void load_font() {
     #ifdef __APPLE__
       font = fonsAddFont(fs, "sans", "Fonts/DroidSerif-Regular.ttf");
     #else
-      font = fonsAddFont(fs, "sans", "Resoures\\Fonts\\DroidSerif-Regular.ttf");
+      font = fonsAddFont(fs, "sans", "Resources\\Fonts\\DroidSerif-Regular.ttf");
     #endif
     if (font != FONS_INVALID) {
       // setup our font
