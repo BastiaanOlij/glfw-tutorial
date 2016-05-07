@@ -19,7 +19,7 @@
  * Revision history:
  * 0.1  09-03-2015  First version with basic functions
  * 0.2  06-01-2016  Moved shaderSelectProgram into materials
- * 0.3  26-04-2016  Moved shaderSelectProgram into materials
+ * 0.3  26-04-2016  More shader changes
  *
  ********************************************************/
 
