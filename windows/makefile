@@ -35,6 +35,8 @@ all: $(CONTENTSDIR) \
   $(RESOURCEDIR)\Shaders \
   $(RESOURCEDIR)\Shaders\billboard.vs \
   $(RESOURCEDIR)\Shaders\billboard.fs \
+  $(RESOURCEDIR)\Shaders\geomainpass.vs \
+  $(RESOURCEDIR)\Shaders\geomainpass.fs \
   $(RESOURCEDIR)\Shaders\hmap.vs \
   $(RESOURCEDIR)\Shaders\hmap.fs \
   $(RESOURCEDIR)\Shaders\hmap_ts.vs \
@@ -42,6 +44,7 @@ all: $(CONTENTSDIR) \
   $(RESOURCEDIR)\Shaders\hmap_ts.te \
   $(RESOURCEDIR)\Shaders\hmap_ts.ts \
   $(RESOURCEDIR)\Shaders\hmap_ts.fs \
+  $(RESOURCEDIR)\Shaders\outputs.fs \
   $(RESOURCEDIR)\Shaders\shadow.vs \
   $(RESOURCEDIR)\Shaders\shadow.fs \
   $(RESOURCEDIR)\Shaders\shadowmap.fs \
@@ -134,6 +137,12 @@ $(RESOURCEDIR)\Shaders\billboard.vs: ..\resources\Shaders\billboard.vs
 $(RESOURCEDIR)\Shaders\billboard.fs: ..\resources\Shaders\billboard.fs
   copy /B /Y $** $@
 
+$(RESOURCEDIR)\Shaders\billboard.vs: ..\resources\Shaders\geomainpass.vs
+  copy /B /Y $** $@
+
+$(RESOURCEDIR)\Shaders\billboard.fs: ..\resources\Shaders\geomainpass.fs
+  copy /B /Y $** $@
+
 $(RESOURCEDIR)\Shaders\hmap.vs: ..\resources\Shaders\hmap.vs
   copy /B /Y $** $@
 
@@ -153,6 +162,9 @@ $(RESOURCEDIR)\Shaders\hmap_ts.ts: ..\resources\Shaders\hmap_ts.ts
   copy /B /Y $** $@
 
 $(RESOURCEDIR)\Shaders\hmap_ts.fs: ..\resources\Shaders\hmap_ts.fs
+  copy /B /Y $** $@
+
+$(RESOURCEDIR)\Shaders\shadow.vs: ..\resources\Shaders\output.fs
   copy /B /Y $** $@
 
 $(RESOURCEDIR)\Shaders\shadow.vs: ..\resources\Shaders\shadow.vs
