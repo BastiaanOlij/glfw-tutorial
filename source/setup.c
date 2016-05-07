@@ -143,8 +143,8 @@ bool SetupGLFW(glfw_setup * pInfo) {
     
   // init with defaults
   pInfo->monitor = NULL;
-  pInfo->vidmode.width = 640;
-  pInfo->vidmode.height = 480;
+  pInfo->vidmode.width = 1280;
+  pInfo->vidmode.height = 720;
   if (defaultMode == NULL) {
     pInfo->vidmode.redBits = 8;
     pInfo->vidmode.greenBits = 8;
@@ -157,6 +157,7 @@ bool SetupGLFW(glfw_setup * pInfo) {
     pInfo->vidmode.refreshRate = defaultMode->refreshRate;
   };
   pInfo->stereomode = 0;
+  pInfo->hmd = 0;
   
   // start by creating a normal GLFW window to display our setup in
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE); // don't resize this window
@@ -185,6 +186,7 @@ bool SetupGLFW(glfw_setup * pInfo) {
   monitorArray = SetupGetMonitors(&monitorCount);
   if (monitorArray != NULL) {
     monitorType = TwDefineEnumFromArray("MonitorType", monitorArray, sizeof(setupMonitorData), monitorCount, 0);
+    data.monitorIndex = monitorCount-1; // we are defaulting to the last entry, which is windowed
     TwAddVarRW(myBar, "Monitor", monitorType, &data.monitorIndex, NULL);
   };
     
@@ -196,6 +198,7 @@ bool SetupGLFW(glfw_setup * pInfo) {
   // add our stereo mode dropdown
   stereomodeType = TwDefineEnumFromString("StereomodeType", "2D,3D splitscreen");
   TwAddVarRW(myBar,"Stereo mode", stereomodeType, &pInfo->stereomode, NULL);
+  TwAddVarRW(myBar,"HMD", TW_TYPE_BOOL8, &pInfo->hmd, NULL);
   
   // add our success button
   TwAddSeparator(myBar, "Sep1", NULL);

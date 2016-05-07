@@ -10,7 +10,6 @@ uniform mat4      modelView;      // our model-view matrix
 uniform mat3      normalMatrix;   // our normal matrix
 uniform mat3      normalView;     // our normalView matrix
 uniform mat4      mvp;            // our model-view-projection matrix
-uniform mat4      shadowMat[3];   // our shadows view-projection matrix
 
 // these are in world coordinates
 out vec3          E;              // normalized vector pointing from eye to V
@@ -21,9 +20,6 @@ out vec4          V;              // position of fragment after modelView matrix
 out vec3          Nv;             // normal for our fragment with our normalView matrix applied
 out vec2          T;              // coordinates for this fragment within our texture map
 
-// shadow map
-out vec4          Vs[3];          // our shadow map coordinates
-
 void main(void) {
   // load up our values
   V = vec4(positions, 1.0);
@@ -33,11 +29,6 @@ void main(void) {
   // our on screen position by applying our model-view-projection matrix
   gl_Position = mvp * V;
 
-  // our shadow map coordinates
-  Vs[0] = shadowMat[0] * model * V;
-  Vs[1] = shadowMat[1] * model * V;
-  Vs[2] = shadowMat[2] * model * V;
-  
   // E is direction of eye
   E = (model * V).xyz;
   E = normalize(E - eyePos);

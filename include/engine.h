@@ -40,6 +40,7 @@
 // #include "spritesheet.h"
 #include "mesh3d.h"
 #include "meshnode.h"
+#include "gbuffer.h"
 
 #include "joysticks.h"
 
@@ -54,7 +55,7 @@ typedef bool(* EngineKeyPressed)(int);
 
 void engineSetKeyPressedCallback(EngineKeyPressed pCallback);
 void engineInit();
-void engineLoad();
+void engineLoad(bool pHMD);
 void engineUnload();
 void engineUpdate(double pSecondsPassed);
 void engineRender(int pWidth, int pHeight, float ratio, int pMode);

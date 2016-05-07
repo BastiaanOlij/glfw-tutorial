@@ -32,7 +32,6 @@
 #include "math3d.h"
 #include "material.h"
 
-#define GL_UNDEF_OBJ      0xffffffff
 #define BUFFER_EXPAND     100
 
 // structure for our vertices
@@ -482,9 +481,11 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
     pMesh->canRender = false;
     return false;    
   };
+
+  infolog("Copying %s to GL", pMesh->name);
   
   // make sure we have buffers
-  if (pMesh->VBO[0] == GL_UNDEF_OBJ) {
+  if (pMesh->VAO == GL_UNDEF_OBJ) {
     glGenVertexArrays(1, &(pMesh->VAO));
   };
   if (pMesh->VBO[0] == GL_UNDEF_OBJ) {
@@ -559,8 +560,15 @@ bool meshTestVolume(mesh3d * pMesh, const mat4 * pMVP) {
     return false;
   };
   for (i = 0; i< pMesh->vertices->numEntries; i++) {
-    mat4ApplyToVec3(&verts[i], (vec3 *)dynArrayDataAtIndex(pMesh->vertices,i), pMVP);
-    if (verts[i].z > 0.0) {
+    vec4 V;
+
+    // due to our z/w calculation our behind the camera check wasn't working so start with a vec4!
+    vec4FromVec3(&V, (vec3 *)dynArrayDataAtIndex(pMesh->vertices,i), 1.0);
+    mat4ApplyToVec4(&V, &V, pMVP);
+
+    if (V.z > 0.0) {
+      // now we can divide by w...
+      vec3FromVec4(&verts[i], &V, true);
       if ((verts[i].x >= -1.0) && (verts[i].x <= 1.0) && (verts[i].y >= -1.0) && (verts[i].y <= 1.0)) {
         // on screen, no need to test further ;)
         free(verts);
@@ -640,7 +648,6 @@ bool meshRender(mesh3d * pMesh) {
   } else if (pMesh->verticesPerFace == 4) {
     glDrawElements(GL_PATCHES, pMesh->loadedIndices, GL_UNSIGNED_INT, 0); 
   };
-  glBindVertexArray(0);
   
   return true;
 };

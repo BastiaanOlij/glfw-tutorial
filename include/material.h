@@ -29,20 +29,10 @@
 #include "shaders.h"
 #include "texturemap.h"
 
-// and a structure to hold information about a light (temporarily moved here)
-typedef struct lightSource {
-  float             ambient;          // ambient factor for our light
-  vec3              position;         // position of our light
-  vec3              adjPosition;      // position of our light with view matrix applied
-  bool              shadowRebuild[3]; // do we need to rebuild our shadow map?
-  vec3              shadowLA[3];      // remembering our lookat point for our shadow map
-  texturemap *      shadowMap[3];     // shadowmaps for this light
-  mat4              shadowMat[3];     // view-projection matrices for this light
-} lightSource;
-
 // structure for our material info
 typedef struct material {
   unsigned int      retainCount;      // retain count for this object
+  int               priority;         // render priority for our material (0 = highest, infinity = lowest)
   char              name[50];         // name of our material
   bool              twoSided;         // is this a two sided material?
   
@@ -50,6 +40,7 @@ typedef struct material {
   shaderInfo *      shadowShader;     // shader to use for rendering shadows
   
   GLfloat           alpha;            // alpha for our material
+  float             ambient;          // ambient factor for our material
   vec3              matColor;         // diffuse color for this material
   vec3              matSpecColor;     // specular color for this material
   GLfloat           shininess;        // shininess of this material
@@ -72,7 +63,8 @@ void matSetShadowShader(material * pMat, shaderInfo * pShader);
 void matSetDiffuseMap(material * pMat, texturemap * pTMap);
 void matSetReflectMap(material * pMat, texturemap * pTMap);
 void matSetBumpMap(material * pMat, texturemap * pTMap);
-bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight);
+void matResetLastUsed(void);
+bool matSelectProgram(material * pMat, shaderMatrices * pMatrices);
 bool matSelectShadow(material * pMat, shaderMatrices * pMatrices);
 
 bool matParseMtl(const char * pData, llist * pMaterials);
@@ -89,11 +81,13 @@ material * newMaterial(char * pName) {
   material * newMat = (material *) malloc(sizeof(material));
   if (newMat != NULL) {
     newMat->retainCount = 1;
+    newMat->priority = 10;
     strcpy(newMat->name, pName);
     newMat->matShader = NULL;
     newMat->shadowShader = NULL;
     newMat->twoSided = false;
     newMat->alpha = 1.0;
+    newMat->ambient = 0.3;
     vec3Set(&newMat->matColor, 1.0, 1.0, 1.0);
     vec3Set(&newMat->matSpecColor, 1.0, 1.0, 1.0);
     newMat->shininess = 50.0;
@@ -285,7 +279,15 @@ void matSetBumpMap(material * pMat, texturemap * pTMap) {
   };
 };
 
-bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource * pLight) {
+// remember what material we last selected
+material * matLastMaterial = NULL;
+
+// reset the last material we used
+void matResetLastUsed(void) {
+  matLastMaterial = NULL;
+};
+
+bool matSelectProgram(material * pMat, shaderMatrices * pMatrices) {
   int     texture = 0, i;
   
   if (pMat == NULL) {
@@ -299,32 +301,99 @@ bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
     return false;
   };
 
-  if (pMat->twoSided) {
-    glDisable(GL_CULL_FACE);  // disable culling
+  if (pMat == matLastMaterial) {
+    // Assume we're already using this material. Not sure if this has any noticable effect.
+    // We assume the following is static:
+    // - program
+    // - textures
+    // - projection and view matrices
+    // If this is wrong matResetLastUsed should be called beforehand
   } else {
-    glEnable(GL_CULL_FACE);   // enable culling
-  }
+    // remember for next time
+    matLastMaterial = pMat;
 
-  glUseProgram(pMat->matShader->program);
+    // infolog("Select material %s (%li)", pMat->name, pMat->priority);
+
+    if (pMat->twoSided) {
+      glDisable(GL_CULL_FACE);  // disable culling
+    } else {
+      glEnable(GL_CULL_FACE);   // enable culling
+    }
+
+    glUseProgram(pMat->matShader->program);
+
+    // setup our material
+    if (pMat->matShader->alphaId >= 0) {
+      glUniform1f(pMat->matShader->alphaId, pMat->alpha);      
+    };
+
+    if (pMat->matShader->ambientId >= 0) {
+      glUniform1f(pMat->matShader->ambientId, pMat->ambient);       
+    };
+
+    if (pMat->matShader->matColorId >= 0) {
+      glUniform3f(pMat->matShader->matColorId, pMat->matColor.x, pMat->matColor.y, pMat->matColor.z);      
+    };
+
+    if (pMat->matShader->matSpecColorId >= 0) {
+      glUniform3f(pMat->matShader->matSpecColorId, pMat->matSpecColor.x, pMat->matSpecColor.y, pMat->matSpecColor.z);      
+    };
+    
+    if (pMat->matShader->shininessId >= 0) {
+      glUniform1f(pMat->matShader->shininessId, pMat->shininess);      
+    };
+
+    if (pMat->matShader->textureMapId >= 0) {
+      glActiveTexture(GL_TEXTURE0 + texture);
+      if (pMat->diffuseMap == NULL) {
+        glBindTexture(GL_TEXTURE_2D, 0);      
+      } else {
+        glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
+      }
+      glUniform1i(pMat->matShader->textureMapId, texture); 
+      texture++;   
+    };
+
+    if (pMat->matShader->reflectMapId >= 0) {
+      glActiveTexture(GL_TEXTURE0 + texture);
+      if (pMat->reflectMap == NULL) {
+        glBindTexture(GL_TEXTURE_2D, 0);      
+      } else {
+        glBindTexture(GL_TEXTURE_2D, pMat->reflectMap->textureId);      
+      }
+      glUniform1i(pMat->matShader->reflectMapId, texture); 
+      texture++;   
+    };  
+
+    if (pMat->matShader->bumpMapId >= 0) {
+      glActiveTexture(GL_TEXTURE0 + texture);
+      if (pMat->bumpMap == NULL) {
+        glBindTexture(GL_TEXTURE_2D, 0);      
+      } else {
+        glBindTexture(GL_TEXTURE_2D, pMat->bumpMap->textureId);      
+      }
+      glUniform1i(pMat->matShader->bumpMapId, texture); 
+      texture++;   
+    };
+
+    // setup camera info
+    if (pMat->matShader->eyePosId >= 0) {
+      vec3    tmpvector;
+      shdMatGetEyePos(pMatrices, &tmpvector);
+      glUniform3f(pMat->matShader->eyePosId, tmpvector.x, tmpvector.y, tmpvector.z);       
+    };
   
-  // setup camera info
-  
-  if (pMat->matShader->eyePosId >= 0) {
-    vec3    tmpvector;
-    shdMatGetEyePos(pMatrices, &tmpvector);
-    glUniform3f(pMat->matShader->eyePosId, tmpvector.x, tmpvector.y, tmpvector.z);       
+    // setup our projection and view matrices
+    if (pMat->matShader->projectionMatrixId >= 0) {
+      glUniformMatrix4fv(pMat->matShader->projectionMatrixId, 1, false, (const GLfloat *) pMatrices->projection.m);
+    };
+
+    if (pMat->matShader->viewMatrixId >= 0) {
+      glUniformMatrix4fv(pMat->matShader->viewMatrixId, 1, false, (const GLfloat *) pMatrices->view.m);
+    };
   };
   
-  // setup our matrices
-  
-  if (pMat->matShader->projectionMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->matShader->projectionMatrixId, 1, false, (const GLfloat *) pMatrices->projection.m);
-  };
-
-  if (pMat->matShader->viewMatrixId >= 0) {
-    glUniformMatrix4fv(pMat->matShader->viewMatrixId, 1, false, (const GLfloat *) pMatrices->view.m);
-  };
-
+  // these will likely have changed
   if (pMat->matShader->modelMatrixId >= 0) {
     glUniformMatrix4fv(pMat->matShader->modelMatrixId, 1, false, (const GLfloat *) pMatrices->model.m);
   };
@@ -351,80 +420,6 @@ bool matSelectProgram(material * pMat, shaderMatrices * pMatrices, lightSource *
   if (pMat->matShader->mvpId >= 0) {
     glUniformMatrix4fv(pMat->matShader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
   };
-  
-  // setup our light
-
-  if (pMat->matShader->lightPosId >= 0) {
-    glUniform3f(pMat->matShader->lightPosId, pLight->adjPosition.x, pLight->adjPosition.y, pLight->adjPosition.z);       
-  };
-  if (pMat->matShader->ambientId >= 0) {
-    glUniform1f(pMat->matShader->ambientId, pLight->ambient);       
-  };
-  for (i = 0; i < 3; i++) {
-    if (pMat->matShader->shadowMapId[i] >= 0) {
-      glActiveTexture(GL_TEXTURE0 + texture);
-      if (pLight->shadowMap[i] == NULL) {
-        glBindTexture(GL_TEXTURE_2D, 0);      
-      } else {
-        glBindTexture(GL_TEXTURE_2D, pLight->shadowMap[i]->textureId);
-      }
-      glUniform1i(pMat->matShader->shadowMapId[i], texture); 
-      texture++;   
-    };
-    if (pMat->matShader->shadowMatId[i] >= 0) {
-      glUniformMatrix4fv(pMat->matShader->shadowMatId[i], 1, false, (const GLfloat *) pLight->shadowMat[i].m);
-    };
-  };
-  
-  // setup our material
-  if (pMat->matShader->alphaId >= 0) {
-    glUniform1f(pMat->matShader->alphaId, pMat->alpha);      
-  };
-
-  if (pMat->matShader->matColorId >= 0) {
-    glUniform3f(pMat->matShader->matColorId, pMat->matColor.x, pMat->matColor.y, pMat->matColor.z);      
-  };
-
-  if (pMat->matShader->matSpecColorId >= 0) {
-    glUniform3f(pMat->matShader->matSpecColorId, pMat->matSpecColor.x, pMat->matSpecColor.y, pMat->matSpecColor.z);      
-  };
-  
-  if (pMat->matShader->shininessId >= 0) {
-    glUniform1f(pMat->matShader->shininessId, pMat->shininess);      
-  };
-
-  if (pMat->matShader->textureMapId >= 0) {
-    glActiveTexture(GL_TEXTURE0 + texture);
-    if (pMat->diffuseMap == NULL) {
-      glBindTexture(GL_TEXTURE_2D, 0);      
-    } else {
-      glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
-    }
-    glUniform1i(pMat->matShader->textureMapId, texture); 
-    texture++;   
-  };
-
-  if (pMat->matShader->reflectMapId >= 0) {
-    glActiveTexture(GL_TEXTURE0 + texture);
-    if (pMat->reflectMap == NULL) {
-      glBindTexture(GL_TEXTURE_2D, 0);      
-    } else {
-      glBindTexture(GL_TEXTURE_2D, pMat->reflectMap->textureId);      
-    }
-    glUniform1i(pMat->matShader->reflectMapId, texture); 
-    texture++;   
-  };  
-
-  if (pMat->matShader->bumpMapId >= 0) {
-    glActiveTexture(GL_TEXTURE0 + texture);
-    if (pMat->bumpMap == NULL) {
-      glBindTexture(GL_TEXTURE_2D, 0);      
-    } else {
-      glBindTexture(GL_TEXTURE_2D, pMat->bumpMap->textureId);      
-    }
-    glUniform1i(pMat->matShader->bumpMapId, texture); 
-    texture++;   
-  };  
 
   return true;
 };
@@ -443,28 +438,42 @@ bool matSelectShadow(material * pMat, shaderMatrices * pMatrices) {
     return false;
   };
 
-  if (pMat->twoSided) {
-    glDisable(GL_CULL_FACE);  // disable culling
+  if (pMat == matLastMaterial) {
+    // Assume we're already using this material.
+    // We assume the following is static:
+    // - program
+    // - textures
+    // - projection and view matrices
+    // If this is wrong matResetLastUsed should be called beforehand
   } else {
-    glEnable(GL_CULL_FACE);   // enable culling
-  }
+    // remember for next time
+    matLastMaterial = pMat;
 
-  glUseProgram(pMat->shadowShader->program);
+    // infolog("Select shadow material %s", pMat->name);
 
-  // we communicate very little to our shadow shaders
-  if (pMat->shadowShader->mvpId >= 0) {
-    glUniformMatrix4fv(pMat->shadowShader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
+    if (pMat->twoSided) {
+      glDisable(GL_CULL_FACE);  // disable culling
+    } else {
+      glEnable(GL_CULL_FACE);   // enable culling
+    }
+
+    glUseProgram(pMat->shadowShader->program);
+
+    if (pMat->shadowShader->textureMapId >= 0) {
+      glActiveTexture(GL_TEXTURE0 + texture);
+      if (pMat->diffuseMap == NULL) {
+        glBindTexture(GL_TEXTURE_2D, 0);      
+      } else {
+        glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
+      }
+      glUniform1i(pMat->shadowShader->textureMapId, texture); 
+      texture++;   
+    };
   };
 
-  if (pMat->shadowShader->textureMapId >= 0) {
-    glActiveTexture(GL_TEXTURE0 + texture);
-    if (pMat->diffuseMap == NULL) {
-      glBindTexture(GL_TEXTURE_2D, 0);      
-    } else {
-      glBindTexture(GL_TEXTURE_2D, pMat->diffuseMap->textureId);      
-    }
-    glUniform1i(pMat->shadowShader->textureMapId, texture); 
-    texture++;   
+  // our mvp will have changed
+  if (pMat->shadowShader->mvpId >= 0) {
+    glUniformMatrix4fv(pMat->shadowShader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
   };
 
   return true;  

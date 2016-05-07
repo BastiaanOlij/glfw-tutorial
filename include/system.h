@@ -32,11 +32,16 @@
 #include <string.h>
 #include <stdarg.h>
 
+// some defines we use
+#define GL_UNDEF_OBJ      0xffffffff
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void errorlog(int error, const char* description, ...);
+char * getLogLine(int i);
+void infolog(const char * description, ...);
+void errorlog(int error, const char * description, ...);
 char* loadFile(const char* pPath, const char* pFileName);
 
 #ifdef __cplusplus
@@ -45,15 +50,66 @@ char* loadFile(const char* pPath, const char* pFileName);
 
 #ifdef SYS_IMPLEMENTATION
 
-// function for logging errors
-void errorlog(int error, const char* description, ...) {
+// buffer of last 20 entries into our errorlog
+bool initLog = true;
+char sysLogData[20][80];
+
+char * getLogLine(int i) {
+  static char notinit[] = "Not initialized";
+
+  if (initLog) {
+    return notinit;
+  } else {
+    return sysLogData[i];
+  };
+};
+
+void addToLog(const char * text) {
+  int i;
+
+  if (initLog) {
+    // first call?
+    for (i = 0; i < 19; i++) {
+      strcpy(sysLogData[i], "");
+    };
+    
+    initLog = false;
+  } else {
+    for (i = 0; i < 19; i++) {
+      strcpy(sysLogData[i], sysLogData[i+1]);
+    };
+  };
+  if (strlen(text) >= 80) {
+    memcpy(sysLogData[19], text, 80);
+    sysLogData[19][79] = '\0';
+  } else {
+    strcpy(sysLogData[19], text);
+  };
+};
+
+// function for just logging info without writing to file
+void infolog(const char * description, ...) {
   va_list args;
   char fulldesc[2048];
-  FILE * log;
-  
+
   va_start(args, description);
   vsprintf(fulldesc, description, args);
   va_end(args);
+
+  addToLog(fulldesc);
+};
+
+// function for logging errors
+void errorlog(int error, const char * description, ...) {
+  va_list args;
+  char fulldesc[2048];
+  FILE * log;
+
+  va_start(args, description);
+  vsprintf(fulldesc, description, args);
+  va_end(args);
+
+  addToLog(fulldesc);
   
 #ifdef __APPLE__
 	// output to syslog

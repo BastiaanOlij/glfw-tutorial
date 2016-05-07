@@ -66,14 +66,9 @@ typedef struct shaderInfo {
   GLint   normalViewId;             // matrix to apply to our normals also adjusted to view
   GLint   mvpId;                    // our model view projection matrix
 
-  // light info  
-  GLint   ambientId;                // ambient color of our light
-  GLint   lightPosId;               // position of our light
-  GLint   shadowMapId[3];           // ID of our shadow maps
-  GLint   shadowMatId[3];           // ID for our shadow matrices
-
   // material
   GLint   alphaId;                  // alpha
+  GLint   ambientId;                // ambient color of our light
   GLint   matColorId;               // material diffuse color
   GLint   matSpecColorId;           // material specular color
   GLint   shininessId;              // shininess
@@ -460,7 +455,7 @@ GLuint shaderLink(GLuint pNumShaders, ...) {
 shaderInfo * newShader(const char *pName, const char * pVertexShader, const char * pTessControlShader, const char * pTessEvalShader, const char * pGeoShader, const char * pFragmentShader, const char *pDefines) {
   shaderInfo * newshader = (shaderInfo *)malloc(sizeof(shaderInfo));
   if (newshader != NULL) {
-    llist * defines;
+    llist * defines = NULL;
     char    filename[1024];
     int     count = 0;
     GLuint  shaders[5];
@@ -554,101 +549,83 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
 
   pShader->projectionMatrixId = glGetUniformLocation(pShader->program, "projection");
   if (pShader->projectionMatrixId < 0) {
-    errorlog(pShader->projectionMatrixId, "Unknown uniform %s:projection", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:projection", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->viewMatrixId = glGetUniformLocation(pShader->program, "view");
   if (pShader->viewMatrixId < 0) {
-    errorlog(pShader->viewMatrixId, "Unknown uniform %s:view", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:view", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->modelMatrixId = glGetUniformLocation(pShader->program, "model");
   if (pShader->modelMatrixId < 0) {
-    errorlog(pShader->modelMatrixId, "Unknown uniform %s:model", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:model", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->modelViewMatrixId = glGetUniformLocation(pShader->program, "modelView");
   if (pShader->modelViewMatrixId < 0) {
-    errorlog(pShader->modelViewMatrixId, "Unknown uniform %s:modelView", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:modelView", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->modelViewInverseId = glGetUniformLocation(pShader->program, "modelViewInverse");
   if (pShader->modelViewInverseId < 0) {
-    errorlog(pShader->modelViewInverseId, "Unknown uniform %s:modelViewInverse", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:modelViewInverse", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->normalMatrixId = glGetUniformLocation(pShader->program, "normalMatrix");
   if (pShader->normalMatrixId < 0) {
-    errorlog(pShader->normalMatrixId, "Unknown uniform %s:normalMatrix", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:normalMatrix", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->normalViewId = glGetUniformLocation(pShader->program, "normalView");
   if (pShader->normalViewId < 0) {
-    errorlog(pShader->normalViewId, "Unknown uniform %s:normalView", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:normalView", pShader->name);  // just log it, may not be a problem
   };
 
   pShader->mvpId = glGetUniformLocation(pShader->program, "mvp");
   if (pShader->mvpId < 0) {
-    errorlog(pShader->mvpId, "Unknown uniform %s:mvp", pShader->name);  // just log it, may not be a problem
-  };
-  
-  // light
-  
-  pShader->lightPosId = glGetUniformLocation(pShader->program, "lightPos");
-  if (pShader->lightPosId < 0) {
-    errorlog(pShader->lightPosId, "Unknown uniform %s:lightPos", pShader->name);
-  };
-  pShader->ambientId = glGetUniformLocation(pShader->program, "ambient");
-  if (pShader->ambientId < 0) {
-    errorlog(pShader->ambientId, "Unknown uniform %s:ambient", pShader->name);
-  };
-  for (i = 0; i < 3; i++) {
-    sprintf(uName, "shadowMap[%d]", i);
-    pShader->shadowMapId[i] = glGetUniformLocation(pShader->program, uName);
-    if (pShader->shadowMapId[i] < 0) {
-      errorlog(pShader->shadowMapId[i], "Unknown uniform %s:%s", pShader->name, uName);
-    };
-    sprintf(uName, "shadowMat[%d]", i);
-    pShader->shadowMatId[i] = glGetUniformLocation(pShader->program, uName);
-    if (pShader->shadowMatId[i] < 0) {
-      errorlog(pShader->shadowMatId[i], "Unknown uniform %s:%s", pShader->name, uName);
-    };
+    infolog("Unknown uniform %s:mvp", pShader->name);  // just log it, may not be a problem
   };
   
   // material
   pShader->alphaId = glGetUniformLocation(pShader->program, "alpha");
   if (pShader->alphaId < 0) {
-    errorlog(pShader->alphaId, "Unknown uniform %s:alpha", pShader->name);    
+    infolog("Unknown uniform %s:alpha", pShader->name);    
+  };
+
+  pShader->ambientId = glGetUniformLocation(pShader->program, "ambient");
+  if (pShader->ambientId < 0) {
+    infolog("Unknown uniform %s:ambient", pShader->name);
   };
 
   pShader->matColorId = glGetUniformLocation(pShader->program, "matColor");
   if (pShader->matColorId < 0) {
-    errorlog(pShader->matColorId, "Unknown uniform %s:matColor", pShader->name);    
+    infolog("Unknown uniform %s:matColor", pShader->name);    
   };
 
   pShader->matSpecColorId = glGetUniformLocation(pShader->program, "matSpecColor");
   if (pShader->matSpecColorId < 0) {
-    errorlog(pShader->matSpecColorId, "Unknown uniform %s:matSpecColor", pShader->name);    
+    infolog("Unknown uniform %s:matSpecColor", pShader->name);    
   };
   
   pShader->shininessId = glGetUniformLocation(pShader->program, "shininess");
   if (pShader->shininessId < 0) {
-    errorlog(pShader->shininessId, "Unknown uniform %s:shininess", pShader->name);    
+    infolog("Unknown uniform %s:shininess", pShader->name);    
   };
   
   pShader->textureMapId = glGetUniformLocation(pShader->program, "textureMap");
   if (pShader->textureMapId < 0) {
-    errorlog(pShader->textureMapId, "Unknown uniform %s:textureMap", pShader->name);
+    infolog("Unknown uniform %s:textureMap", pShader->name);
   };
   
   pShader->reflectMapId = glGetUniformLocation(pShader->program, "reflectMap");
   if (pShader->reflectMapId < 0) {
-    errorlog(pShader->reflectMapId, "Unknown uniform %s:reflectMap", pShader->name);
+    infolog("Unknown uniform %s:reflectMap", pShader->name);
   };
 
   pShader->bumpMapId = glGetUniformLocation(pShader->program, "bumpMap");
   if (pShader->bumpMapId < 0) {
-    errorlog(pShader->bumpMapId, "Unknown uniform %s:bumpMap", pShader->name);
+    infolog("Unknown uniform %s:bumpMap", pShader->name);
   };
 };
 

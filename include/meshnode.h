@@ -70,7 +70,7 @@ void meshNodeSetBounds(meshNode * pNode, mesh3d * pBounds);
 void meshNodeMakeBounds(meshNode *pNode);
 void meshNodeAddChild(meshNode * pNode, meshNode * pChild);
 void meshNodeAddChildren(meshNode *pNode, llist * pMeshList);
-void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun);
+void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial);
 void meshNodeShadowMap(meshNode *pNode, shaderMatrices * pMatrices);
 
 #ifdef __cplusplus
@@ -454,16 +454,25 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
 
   if (pNode->mesh != NULL) {
     renderMesh render;
+    vec3 tmpvector;
+    mat4 mv;
 
     if (pNode->mesh->visible == false) {
       return false;
     };
 
+    // get our Z
+    mat4Copy(&mv, &pMatrices->view);
+    mat4Multiply(&mv, &model);
+//    vec3Set(&tmpvector, 0.0, 0.0, 0.0);
+//    mat4ApplyToVec3(&tmpvector, &tmpvector, &mv);
+
     // add our mesh
     render.mesh = pNode->mesh;
     mat4Copy(&render.model, &model);
-    render.z = 0.0; // not yet used, need to apply view matrix to calculate
-    
+//    render.z = tmpvector.z;
+    render.z = mv.m[3][2];
+
     if (pNode->mesh->material == NULL) {
       if (pNoAlpha != NULL) {
         dynArrayPush(pNoAlpha, &render); // this copies our structure        
@@ -497,8 +506,54 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
   return true;
 };
 
+int renderMeshSort(const void * pA, const void * pB) {
+  renderMesh * a = (renderMesh *) pA;
+  renderMesh * b = (renderMesh *) pB;
+
+  // sort by priority of material, then material, then mesh, then distance (closest to furthest)
+  if ((a->mesh == NULL) && (b->mesh == NULL)) {
+    return 0;
+  } else if (a->mesh == NULL) {
+    return -1;
+  } else if (b->mesh == NULL) {
+    return 1;
+  } else if (a->mesh->material->priority < b->mesh->material->priority) {
+    return -1;
+  } else if (a->mesh->material->priority > b->mesh->material->priority) {
+    return 1;
+  } else if (a->mesh->material < b->mesh->material) {
+    return -1;
+  } else if (a->mesh->material > b->mesh->material) {
+    return 1;
+  } else if (a->mesh < b->mesh) {
+    return -1;
+  } else if (a->mesh > b->mesh) {
+    return 1;
+  } else if (a->z < b->z) {
+    return -1;
+  } else if (a->z > b->z) {
+    return 1;
+  } else {
+    return 0;
+  };
+};
+
+int renderMeshDistSort(const void * pA, const void * pB) {
+  renderMesh * a = (renderMesh *) pA;
+  renderMesh * b = (renderMesh *) pB;
+
+  // sort only by distance (closest to furthest)
+  if (a->z < b->z) {
+    return -1;
+  } else if (a->z > b->z) {
+    return 1;
+  } else {
+    return 0;
+  };
+};
+
 // render the contents of our node to the current output
-void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial, lightSource * pSun) {
+void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDefaultMaterial) {
   dynarray *      meshesWithoutAlpha  = newDynArray(sizeof(renderMesh));
   dynarray *      meshesWithAlpha     = newDynArray(sizeof(renderMesh));
   mat4            model;
@@ -511,8 +566,9 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
   // now render no-alpha
   glDisable(GL_BLEND);
 
-  // we should sort our meshesWithoutAlpha list by material here and then only select our material 
-  // if we're switching material  
+  // we sort our meshesWithoutAlpha list by material here and then only select our material 
+  // if we're switching material
+  dynArraySort(meshesWithoutAlpha, renderMeshSort);
 
   for (i = 0; i < meshesWithoutAlpha->numEntries; i++) {
     bool selected = true;
@@ -520,12 +576,13 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
   
     shdMatSetModel(pMatrices, &render->model);
     if (render->mesh->material == NULL) {
-      selected = matSelectProgram(pDefaultMaterial, pMatrices, pSun);
+      selected = matSelectProgram(pDefaultMaterial, pMatrices);
     } else {
-      selected = matSelectProgram(render->mesh->material, pMatrices, pSun);
+      selected = matSelectProgram(render->mesh->material, pMatrices);
     };
 
     if (selected) {
+      // infolog("Render %s at %f", render->mesh->name, render->z);
       meshRender(render->mesh);
     } else {
       // couldn't select our material? don't attemp again
@@ -533,21 +590,23 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
     };
   };    
   
-  // and render alpha
-  glEnable(GL_BLEND);
-  glBlendEquation(GL_FUNC_ADD);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  // and render alpha (temporarily disabled, treating as opaque for now...)
+//  glEnable(GL_BLEND);
+//  glBlendEquation(GL_FUNC_ADD);
+//  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   // we should sort our meshesWithAlpha list by distance just in case there is overlap here
-  
+  dynArraySort(meshesWithAlpha, renderMeshDistSort);
+
   for (i = 0; i < meshesWithAlpha->numEntries; i++) {
     bool selected = true;
     renderMesh * render = dynArrayDataAtIndex(meshesWithAlpha, i);
   
     shdMatSetModel(pMatrices, &render->model);
-    selected = matSelectProgram(render->mesh->material, pMatrices, pSun);
+    selected = matSelectProgram(render->mesh->material, pMatrices);
 
     if (selected) {
+      // infolog("Render %s at %f", render->mesh->name, render->z);
       meshRender(render->mesh);
     } else {
       // couldn't select our material? don't attemp again
@@ -569,8 +628,10 @@ void meshNodeShadowMap(meshNode *pNode, shaderMatrices * pMatrices) {
   mat4Identity(&model);
   meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, NULL);
 
-  // we should sort our meshesWithoutAlpha list by material here and then only select our material 
+  // we sort our meshesWithoutAlpha list by material here and then only select our material 
   // if we're switching material  
+  dynArraySort(meshesWithoutAlpha, renderMeshSort);
+
   for (i = 0; i < meshesWithoutAlpha->numEntries; i++) {
     bool selected = true;
     renderMesh * render = dynArrayDataAtIndex(meshesWithoutAlpha, i);

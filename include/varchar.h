@@ -50,6 +50,7 @@ void varcharTrim(varchar * pVarchar);
 llist * newVarcharList();
 llist * newVCListFromString(const char * pText, const char * pDelimiters);
 bool vclistContains(llist * pVCList, const char * pText);
+void vclistAddString(llist * pVCList, const char * pText);
 
 #ifdef __cplusplus
 };
@@ -304,6 +305,8 @@ llist * newVCListFromString(const char * pText, const char * pDelimiters) {
           varcharAppend(addChar, line, len);
 
           llistAddTo(varcharList, addChar);
+
+          varcharRelease(addChar); // now owned by our list
         };
 
         if (pText[pos + len] != 0) {
@@ -343,6 +346,17 @@ bool vclistContains(llist * pVCList, const char * pText) {
 
   // not found
   return false;
+};
+
+void vclistAddString(llist * pVCList, const char * pText) {
+  if (pVCList != NULL) {
+    varchar * addChar = newVarchar();
+    if (addChar != NULL) {
+      varcharAppend(addChar, pText, strlen(pText));
+      llistAddTo(pVCList, addChar);
+      varcharRelease(addChar); // now owned by our list
+    };
+  };
 };
 
 #endif /* VARCHAR_IMPLEMENTATION */

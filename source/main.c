@@ -10,6 +10,7 @@
 #define SHADER_IMPLEMENTATION
 #define TILEMAP_IMPLEMENTATION
 #define TEXTURE_IMPLEMENTATION
+#define GBUFF_IMPLEMENTATION
 #define SPRITE_IMPLEMENTATION
 #define MATERIAL_IMPLEMENTATION
 #define MESH_IMPLEMENTATION
@@ -144,7 +145,7 @@ int main(void) {
     // load and initialize our engine
     engineInit();
     engineSetKeyPressedCallback(keypressed_callback);
-    engineLoad();
+    engineLoad(info.hmd != 0);
 
     // and start our render loop
     while (!glfwWindowShouldClose(window)) {
@@ -159,6 +160,7 @@ int main(void) {
 
       // make sure we're not bound to any offscreen framebuffers
       glBindFramebuffer(GL_FRAMEBUFFER, 0);
+      glDrawBuffer(GL_BACK);
       
       // get our window and frame buffer size, we'll move this into GLFWs window resize callbacks eventually
       glfwGetWindowSize(window, &windowWidth, &windowHeight);
@@ -166,11 +168,14 @@ int main(void) {
       
       ratio = (float) frameWidth / (float) frameHeight;
       
+      // our gBuffer will always draw the entire screen, no need to clear anything!
+      // glClearColor(0.0, 0.0, 0.0, 1.0);
+      // glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
       switch (info.stereomode) {
         case 1: {
-          // clear our viewport
-          glClearColor(0.1, 0.1, 0.1, 1.0);
-          glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);      
+          // split screen left/right
+
 
           // render split screen 3D
           int halfWidth = frameWidth / 2;
@@ -191,13 +196,7 @@ int main(void) {
         }; break;
         case 2: {
           // render hardware left/right buffers
-          
-          // clear our viewport
-          glDrawBuffer(GL_BACK);
-          glClearColor(0.1, 0.1, 0.1, 1.0);
-          glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);                
-
-          // set our viewport
+                    // set our viewport
           glViewport(0, 0, frameWidth, frameHeight);
           
           // render left
@@ -212,10 +211,6 @@ int main(void) {
         }; break;
         default: {
           // render normal...
-
-          // clear our viewport
-          glClearColor(0.1, 0.1, 0.1, 1.0);
-          glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);      
           
           // set our viewport
           glViewport(0, 0, frameWidth, frameHeight);

@@ -22,6 +22,10 @@
 
 // standard libraries we need...
 #include <stdarg.h>
+#include "system.h"
+#include "math3d.h"
+#include "shaders.h"
+#include "texturemap.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,33 +42,26 @@ typedef struct sprite {
 } sprite;
 
 typedef struct spritesheet {
-  GLuint   program;               // our shader program
-  GLint    mvpId;                 // our model-view-projection matrix uniform ID
-  GLint    textureId;             // our sprite texture sampler ID
-  GLuint   texture;               // our sprite texture
-  GLint    textureSizeId;         // our texture size uniform ID
-  vec2     textureSize;           // size of our sprite texture in pixels
-  GLint    spriteSizeId;          // our sprite size uniform ID
-  GLint    spriteLeftTopId;       // our sprite left/top uniform ID
-  GLuint   spriteCount;           // number of sprites defined in our sprite sheet
-  GLuint   maxSpriteCount;        // max number of sprites we can currently hold in memory
-  sprite*  sprites;               // array of sprite info
-  GLfloat  spriteScale;           // scale to use for sprites
+  GLuint        vao;
+  GLuint        program;          // our shader program
+  GLint         mvpId;            // our model-view-projection matrix uniform ID
+  GLint         textureId;        // our sprite texture sampler ID
+  GLint         textureSizeId;    // our texture size uniform ID
+  texturemap *  texture;          // our sprite texture
+  GLint         spriteSizeId;     // our sprite size uniform ID
+  GLint         spriteLeftTopId;  // our sprite left/top uniform ID
+  GLuint        spriteCount;      // number of sprites defined in our sprite sheet
+  GLuint        maxSpriteCount;   // max number of sprites we can currently hold in memory
+  sprite*       sprites;          // array of sprite info
+  GLfloat       spriteScale;      // scale to use for sprites
 } spritesheet;
 
-void spInit(spritesheet* pSP);
-
-typedef void(* SPError)(int, const char*, ...);
-void spSetErrorCallback(SPError pCallback);
-
-typedef char*(* SPloadFile)(const char*);
-void spSetLoadFileFunc(SPloadFile pLoadFile);
-
-void spLoad(spritesheet* pSP);
-void spUnload(spritesheet* pSP);
+spritesheet * newSpriteSheet(void);
+void spFree(spritesheet * pSP);
+void spSetTexture(spritesheet * pSP, texturemap * pTexture);
 GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth, GLfloat pHeight);
 void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites);
-void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip);
+void spRender(spritesheet* pSP, shaderMatrices * pMatrices, GLuint pIndex, bool pHorzFlip, bool pVertFlip);
 
 #ifdef __cplusplus
 };
@@ -73,109 +70,90 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
 #ifdef SPRITE_IMPLEMENTATION
 
 //////////////////////////////////////////////////////////
-// initialisation
-
-// init, initialises base values for our spritesheet, kinda like our constructor
-void spInit(spritesheet* pSP) {
-  pSP->program          = NO_SHADER;
-  pSP->mvpId            = -1;
-  pSP->textureId        = -1;
-  pSP->texture          = 0;
-  pSP->textureSizeId    = -1;
-  vec2Set(&(pSP->textureSize), 0.0, 0.0);
-  pSP->spriteSizeId     = -1;
-  pSP->spriteLeftTopId  = -1;
-  pSP->spriteCount      = 0;
-  pSP->maxSpriteCount   = 0;
-  pSP->sprites          = 0;
-  pSP->spriteScale      = 1.0;
-};
-
-//////////////////////////////////////////////////////////
-// error handling
-
-SPError spErrCallback = NULL;
-
-// sets our error callback method
-void spSetErrorCallback(TSError pCallback) {
-  spErrCallback = pCallback;
-};
-
-//////////////////////////////////////////////////////////
-// file handling
-
-SPloadFile spLoadFile = NULL;
-
-// sets the function used to load our file, this way we 
-// can change this to something else
-void spSetLoadFileFunc(SPloadFile pLoadFile) {
-  spLoadFile = pLoadFile;
-};
-
-//////////////////////////////////////////////////////////
 // sprite sheet
 
 // loads, compiles and links our spritesheet shader
-void spLoad(spritesheet* pSP) {
-  char* shaderText = NULL;
+void spLoadShader(spritesheet* pSP) {
   GLuint vertexShader = NO_SHADER, fragmentShader = NO_SHADER;
 
-  if ((spErrCallback == NULL) || (spLoadFile == NULL)) {
-    return;
-  };
-  
-  shaderText = spLoadFile("spritesheet.vs");
-  if (shaderText != NULL) {
-    vertexShader = shaderCompile(GL_VERTEX_SHADER, shaderText);
-    free(shaderText);
-    
-    if (vertexShader != NO_SHADER) {
-      shaderText = spLoadFile("spritesheet.fs");
+  vertexShader = shaderLoad(GL_VERTEX_SHADER, "spritesheet.vs", NULL);
+  fragmentShader = shaderLoad(GL_FRAGMENT_SHADER, "spritesheet.fs", NULL);
 
-      if (shaderText != NULL) {
-        fragmentShader = shaderCompile(GL_FRAGMENT_SHADER, shaderText);
-        free(shaderText);
-        
-        if (fragmentShader != NO_SHADER) {
-          pSP->program = shaderLink(2, vertexShader, fragmentShader);
-          pSP->mvpId = glGetUniformLocation(pSP->program, "mvp");
-          if (pSP->mvpId < 0) {
-            spErrCallback(pSP->mvpId, "Unknown uniform mvp");
-          };
-          pSP->textureId = glGetUniformLocation(pSP->program, "spriteTexture");
-          if (pSP->textureId < 0) {
-            spErrCallback(pSP->textureId, "Unknown uniform spriteTexture");
-          };
-          pSP->textureSizeId = glGetUniformLocation(pSP->program, "textureSize");
-          if (pSP->textureSizeId < 0) {
-            spErrCallback(pSP->textureSizeId, "Unknown uniform textureSize");
-          };
-          pSP->spriteLeftTopId = glGetUniformLocation(pSP->program, "spriteLeftTop");
-          if (pSP->spriteLeftTopId < 0) {
-            spErrCallback(pSP->spriteLeftTopId, "Unknown uniform spriteLeftTop");
-          };
-          pSP->spriteSizeId = glGetUniformLocation(pSP->program, "spriteSize");
-          if (pSP->spriteSizeId < 0) {
-            spErrCallback(pSP->spriteSizeId, "Unknown uniform spriteSize");
-          };
-        };
-                
-        // no longer need this...
-        glDeleteShader(fragmentShader);
+  if ((vertexShader != NO_SHADER) && (fragmentShader != NO_SHADER)) {
+    pSP->program = shaderLink(2, vertexShader, fragmentShader);
+    if (pSP->program == NO_SHADER) {
+      errorlog(-1, "Unable to init sprite shader");
+    } else {
+      pSP->mvpId = glGetUniformLocation(pSP->program, "mvp");
+      if (pSP->mvpId < 0) {
+        errorlog(pSP->mvpId, "Unknown uniform mvp");
       };
-      
-      // no longer need this...
-      glDeleteShader(vertexShader);
+      pSP->textureId = glGetUniformLocation(pSP->program, "spriteTexture");
+      if (pSP->textureId < 0) {
+        errorlog(pSP->textureId, "Unknown uniform spriteTexture");
+      };
+      pSP->textureSizeId = glGetUniformLocation(pSP->program, "textureSize");
+      if (pSP->textureSizeId < 0) {
+        errorlog(pSP->textureSizeId, "Unknown uniform textureSize");
+      };
+      pSP->spriteLeftTopId = glGetUniformLocation(pSP->program, "spriteLeftTop");
+      if (pSP->spriteLeftTopId < 0) {
+        errorlog(pSP->spriteLeftTopId, "Unknown uniform spriteLeftTop");
+      };
+      pSP->spriteSizeId = glGetUniformLocation(pSP->program, "spriteSize");
+      if (pSP->spriteSizeId < 0) {
+        errorlog(pSP->spriteSizeId, "Unknown uniform spriteSize");
+      };
     };
+  };
+                
+  if (fragmentShader != NO_SHADER) {
+    // no longer need this...
+    glDeleteShader(fragmentShader);
+  };
+
+  if (vertexShader != NO_SHADER) {
+    // no longer need this...
+    glDeleteShader(vertexShader);
   };
 };
 
-// unloads a sprite sheet including freeing up any data
-void spUnload(spritesheet* pSP) {
+//////////////////////////////////////////////////////////
+// initialisation
+
+// init, initialises base values for our spritesheet, kinda like our constructor
+spritesheet * newSpriteSheet(void) {
+  spritesheet * newsp = (spritesheet *) malloc(sizeof(spritesheet));
+  if (newsp != NULL) {
+    glGenVertexArrays(1, &newsp->vao);
+    newsp->program          = NO_SHADER;
+    newsp->mvpId            = -1;
+    newsp->textureId        = -1;
+    newsp->textureSizeId    = -1;
+    newsp->texture          = NULL;
+    newsp->spriteSizeId     = -1;
+    newsp->spriteLeftTopId  = -1;
+    newsp->spriteCount      = 0;
+    newsp->maxSpriteCount   = 0;
+    newsp->sprites          = NULL;
+    newsp->spriteScale      = 1.0;
+
+    spLoadShader(newsp);
+  };
+  return newsp;
+};
+
+void spFree(spritesheet * pSP) {
+  if (pSP == NULL) {
+    return;
+  };
+
   if (pSP->program != NO_SHADER) {
     glDeleteProgram(pSP->program);
     pSP->program = NO_SHADER;
   };
+
+  tmapRelease(pSP->texture);
   
   if (pSP->sprites != 0) {
     free(pSP->sprites);
@@ -183,11 +161,30 @@ void spUnload(spritesheet* pSP) {
     pSP->spriteCount = 0;
     pSP->maxSpriteCount = 0;
   };
+
+  glDeleteVertexArrays(1, &pSP->vao);
+  free(pSP);
+};
+
+void spSetTexture(spritesheet * pSP, texturemap * pTexture) {
+  if (pSP == NULL) {
+    return;
+  } else if (pSP->texture == pTexture) {
+    return;
+  } else {
+    if (pSP->texture != NULL) {
+      tmapRelease(pSP->texture);
+    };
+    pSP->texture = pTexture;
+    if (pSP->texture != NULL) {
+      tmapRetain(pSP->texture);
+    };    
+  };
 };
 
 // add sprite definition to our sprite sheet
 GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth, GLfloat pHeight) {
-  if (pSP->sprites == 0) {
+  if (pSP->sprites == NULL) {
     pSP->spriteCount = 0;    
     pSP->maxSpriteCount = 10;
     pSP->sprites = (sprite *)malloc(sizeof(sprite) * pSP->maxSpriteCount);
@@ -198,7 +195,7 @@ GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth,
 
   if (pSP->sprites == 0) {
     // couldn't allocate memory
-    spErrCallback(-201, "Couldn't allocate memory");
+    errorlog(-201, "Couldn't allocate memory");
     pSP->spriteCount = 0;
     pSP->maxSpriteCount = 0;
     
@@ -215,7 +212,7 @@ GLint spAddSprite(spritesheet* pSP, GLfloat pLeft, GLfloat pTop, GLfloat pWidth,
 
 // adds an array of sprites
 void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites) {
-  if (pSP->sprites == 0) {
+  if (pSP->sprites == NULL) {
     pSP->spriteCount = 0;    
     pSP->maxSpriteCount = pNumSprites;
     pSP->sprites = (sprite *)malloc(sizeof(sprite) * pSP->maxSpriteCount);
@@ -226,7 +223,7 @@ void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites) {
 
   if (pSP->sprites == 0) {
     // couldn't allocate memory
-    spErrCallback(-201, "Couldn't allocate memory");
+    errorlog(-201, "Couldn't allocate memory");
     pSP->spriteCount = 0;
     pSP->maxSpriteCount = 0;
   } else {
@@ -236,8 +233,8 @@ void spAddSprites(spritesheet* pSP, const sprite* pSprites, int pNumSprites) {
 };
 
 // renders our tiles using our tile shader
-void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView, GLuint pIndex, bool pHorzFlip, bool pVertFlip) {
-  mat4 mvp;
+void spRender(spritesheet* pSP, shaderMatrices * pMatrices, GLuint pIndex, bool pHorzFlip, bool pVertFlip) {
+  mat4 model;
   vec3 tmpvector;
   sprite tmpsprite;
   
@@ -247,28 +244,26 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
     // get info about the sprite we're about to draw
     tmpsprite = pSP->sprites[pIndex];
 
-    // set our model-view-projection matrix first
-    mat4Copy(&mvp, pProjection);
-    mat4Multiply(&mvp, pModelView);
-
-    // and lastly scale our x and y as we use our sprite size and apply our offset
-    mat4Scale(&mvp, vec3Set(&tmpvector, pHorzFlip ? -pSP->spriteScale : pSP->spriteScale, pVertFlip ? -pSP->spriteScale : pSP->spriteScale, 1.0));
-    mat4Translate(&mvp, vec3Set(&tmpvector, tmpsprite.offsetx, tmpsprite.offsety, 0.0));
+    // set our model matrix to scale our x and y as we use our sprite size and apply our offset
+    mat4Copy(&model, &pMatrices->model);
+    mat4Scale(&model, vec3Set(&tmpvector, pHorzFlip ? -pSP->spriteScale : pSP->spriteScale, pVertFlip ? -pSP->spriteScale : pSP->spriteScale, 1.0));
+    mat4Translate(&model, vec3Set(&tmpvector, tmpsprite.offsetx, tmpsprite.offsety, 0.0));
+    shdMatSetModel(pMatrices, &model);
     
     if (pSP->mvpId >= 0) {
-      glUniformMatrix4fv(pSP->mvpId, 1, false, (const GLfloat *) mvp.m);      
+      glUniformMatrix4fv(pSP->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);      
     };
     
     // now tell it which textures to use
     if (pSP->textureId >= 0) {
   		glActiveTexture(GL_TEXTURE0);
-  		glBindTexture(GL_TEXTURE_2D, pSP->texture);
+  		glBindTexture(GL_TEXTURE_2D, pSP->texture->textureId);
   		glUniform1i(pSP->textureId, 0);      
     };
         
     // and tell it what to draw
     if (pSP->textureSizeId >= 0) {
-  		glUniform2f(pSP->textureSizeId, pSP->textureSize.x, pSP->textureSize.y);
+  		glUniform2f(pSP->textureSizeId, pSP->texture->width, pSP->texture->height);
     };
     if (pSP->spriteLeftTopId >= 0) {
   		glUniform2f(pSP->spriteLeftTopId, tmpsprite.left, tmpsprite.top);      
@@ -278,6 +273,7 @@ void spRender(spritesheet* pSP, const mat4* pProjection, const mat4* pModelView,
     };
 
     // and draw our triangle
+    glBindVertexArray(pSP->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
   };
 };

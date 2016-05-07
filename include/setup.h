@@ -34,6 +34,7 @@ typedef struct glfw_setup {
   GLFWmonitor * monitor;    /* NULL is windows, else selected monitor for full screen */
   GLFWvidmode   vidmode;    /* requested video mode, only width and height are initialized if monitor == NULL */
   int           stereomode; /* requested stereo mode, 0 = mono, 1 = splitscreen, 2 = left/right buffer, ignored if monitor == NULL */
+  char          hmd;        /* render for an HMD */
 } glfw_setup;
 
 #ifdef __cplusplus

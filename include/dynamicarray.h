@@ -53,6 +53,7 @@ void dynArrayFree(dynarray * pArray);
 bool dynArrayCheckSize(dynarray * pArray, unsigned int pMinSize);
 unsigned int dynArrayPush(dynarray * pArray, void * pData);
 void * dynArrayDataAtIndex(dynarray * pArray, unsigned int pIndex);
+void dynArraySort(dynarray * pArray, int (*compar)(const void *, const void *));
   
 #ifdef __cplusplus
 };
@@ -147,6 +148,17 @@ void * dynArrayDataAtIndex(dynarray * pArray, unsigned int pIndex) {
   };
   
   return (char *) pArray->data + (pIndex * pArray->entrySize);
+};
+
+// use qsort to sort our array
+void dynArraySort(dynarray * pArray, int (*compar)(const void *, const void *)) {
+  if (pArray == NULL) {
+    return;
+  } else if (pArray->numEntries == 0) {
+    return;
+  };
+
+  qsort(pArray->data, pArray->numEntries, pArray->entrySize, compar);
 };
 
 #endif /* DYNARRAY_IMPLEMENTATION */
