@@ -451,8 +451,6 @@ bool tmapRenderToShadowMap(texturemap * pTMap, int pWidth, int pHeight) {
       errorlog(status, "Couldn't init framebuffer (errno = %i)", status);
       tmapFreeFrameBuffers(pTMap);
       return false;
-    } else {
-      errorlog(0, "Created shadow map %i,%i", pWidth, pHeight);
     };
   } else {
     // reactivate our framebuffer

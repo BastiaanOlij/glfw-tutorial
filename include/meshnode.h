@@ -389,7 +389,7 @@ typedef struct renderMesh {
 } renderMesh;
 
 // build our no-alpha and alpha render lists based on the contents of our node
-bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shaderMatrices * pMatrices, dynarray * pNoAlpha, dynarray * pAlpha) {
+bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shaderMatrices * pMatrices, dynarray * pNoAlpha, dynarray * pAlpha, bool pCheckBounds) {
   mat4 model;
   
   // is there anything to do?
@@ -425,7 +425,7 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
     };
   };
   
-  if (pNode->bounds != NULL) {
+  if (pNode->bounds != NULL && pCheckBounds) {
     mat4 mvp;
 
     mat4Copy(&mvp, shdMatGetViewProjection(pMatrices));
@@ -464,13 +464,10 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
     // get our Z
     mat4Copy(&mv, &pMatrices->view);
     mat4Multiply(&mv, &model);
-//    vec3Set(&tmpvector, 0.0, 0.0, 0.0);
-//    mat4ApplyToVec3(&tmpvector, &tmpvector, &mv);
 
     // add our mesh
     render.mesh = pNode->mesh;
     mat4Copy(&render.model, &model);
-//    render.z = tmpvector.z;
     render.z = mv.m[3][2];
 
     if (pNode->mesh->material == NULL) {
@@ -492,7 +489,7 @@ bool meshNodeBuildRenderList(const meshNode * pNode, const mat4 * pModel, shader
     llistNode * node = pNode->children->first;
     
     while (node != NULL) {
-      bool visible = meshNodeBuildRenderList((meshNode *) node->data, &model, pMatrices, pNoAlpha, pAlpha);
+      bool visible = meshNodeBuildRenderList((meshNode *) node->data, &model, pMatrices, pNoAlpha, pAlpha, pCheckBounds);
 
       if (pNode->firstVisOnly && visible) {
         // we've rendered our first visible child, ignore the rest!
@@ -561,7 +558,7 @@ void meshNodeRender(meshNode * pNode, shaderMatrices * pMatrices, material * pDe
 
   // prepare our array with things to render....
   mat4Identity(&model);
-  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, meshesWithAlpha);
+  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, meshesWithAlpha, true);
 
   // now render no-alpha
   glDisable(GL_BLEND);
@@ -626,7 +623,7 @@ void meshNodeShadowMap(meshNode *pNode, shaderMatrices * pMatrices) {
 
   // prepare our array with things to render, we ignore meshes with alpha....
   mat4Identity(&model);
-  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, NULL);
+  meshNodeBuildRenderList(pNode, &model, pMatrices, meshesWithoutAlpha, NULL, false);
 
   // we sort our meshesWithoutAlpha list by material here and then only select our material 
   // if we're switching material  

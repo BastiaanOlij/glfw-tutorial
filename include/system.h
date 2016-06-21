@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 // some defines we use
 #define GL_UNDEF_OBJ      0xffffffff

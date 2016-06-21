@@ -16,13 +16,6 @@
 // include opengl
 #include "incgl.h"
 
-// include some standard libraries
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdbool.h>
-
 // and some more 3rd party librarys
 #include <fontstash/fontstash.h>
 #include <fontstash/gl3fontstash.h>
@@ -45,6 +38,19 @@
 #include "joysticks.h"
 
 // enumerations
+enum ENG_SHADERS {
+  RECT_SHADER,
+  RECTDEPTH_SHADER,
+  SKYBOX_SHADER,
+  HMAP_SHADER,
+  BILLBOARD_SHADER,
+  COLOR_SHADER,
+  TEXTURED_SHADER,
+  REFLECT_SHADER,
+  SOLIDSHADOW_SHADER,
+  TEXTURESHADOW_SHADER,
+  NUM_SHADERS
+};
 
 #ifdef __cplusplus
 extern "C" {

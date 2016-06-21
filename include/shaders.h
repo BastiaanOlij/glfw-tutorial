@@ -546,7 +546,7 @@ void shaderSetProgram(shaderInfo * pShader, GLuint pProgram) {
   // camera info
   pShader->eyePosId = glGetUniformLocation(pShader->program, "eyePos");
   if (pShader->eyePosId < 0) {
-    errorlog(pShader->eyePosId, "Unknown uniform %s:eyePos", pShader->name);  // just log it, may not be a problem
+    infolog("Unknown uniform %s:eyePos", pShader->name);  // just log it, may not be a problem
   };
   
   // matrix info

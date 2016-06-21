@@ -30,17 +30,12 @@ int           font = FONS_INVALID;
 float         lineHeight = 0.0f;
 
 // shaders
-shaderInfo *  skyboxShader = NULL;
-shaderInfo *  hmapShader = NULL;
-shaderInfo *  colorShader = NULL;
-shaderInfo *  texturedShader = NULL;
-shaderInfo *  reflectShader = NULL;
-shaderInfo *  billboardShader = NULL;
-shaderInfo *  solidShadow = NULL;
-shaderInfo *  textureShadow = NULL;
+shaderInfo *  shaders[NUM_SHADERS];
 
 // lights
+#define MAX_LIGHTS 100
 lightSource * sun = NULL;
+lightSource * pointLights[MAX_LIGHTS];
 
 // our camera
 mat4          view;
@@ -123,47 +118,35 @@ void load_shaders() {
     errorlog(0, "Maximum supported tesselation level: %d", maxTessLevel);
   };
 
-  skyboxShader = newShader("skybox", "skybox.vs", NULL, NULL, NULL, "skybox.fs", "");
+  // reset our buffer
+  memset(shaders, 0, sizeof(shaders));
+
+  shaders[RECT_SHADER] = newShader("rect","rect.vs", NULL, NULL, NULL, "rect.fs", "");
+  shaders[RECTDEPTH_SHADER] = newShader("rect","rect.vs", NULL, NULL, NULL, "rect.fs", "DEPTHMAP");
+  shaders[SKYBOX_SHADER] = newShader("skybox", "skybox.vs", NULL, NULL, NULL, "skybox.fs", "");
 
   if (maxPatches >= 4) {
-    hmapShader = newShader("hmap", "hmap_ts.vs", "hmap_ts.ts", "hmap_ts.te", "hmap_ts.gs", "hmap_ts.fs", "");
+    shaders[HMAP_SHADER] = newShader("hmap", "hmap_ts.vs", "hmap_ts.ts", "hmap_ts.te", "hmap_ts.gs", "hmap_ts.fs", "");
   } else {
-    hmapShader = newShader("hmap", "hmap.vs", NULL, NULL, NULL, "hmap.fs", "");
+    shaders[HMAP_SHADER] = newShader("hmap", "hmap.vs", NULL, NULL, NULL, "hmap.fs", "");
   };
+  shaders[BILLBOARD_SHADER] = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "billboard.fs", "");
 
-  colorShader = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "standard.fs", "");
-  texturedShader = newShader("textured", "standard.vs", NULL, NULL, NULL, "standard.fs", "textured");
-  reflectShader = newShader("reflect", "standard.vs", NULL, NULL, NULL, "standard.fs", "reflect");
-  billboardShader = newShader("billboard", "billboard.vs", NULL, NULL, NULL, "billboard.fs", "");
+  shaders[COLOR_SHADER] = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "standard.fs", "");
+  shaders[TEXTURED_SHADER] = newShader("textured", "standard.vs", NULL, NULL, NULL, "standard.fs", "textured");
+  shaders[REFLECT_SHADER] = newShader("reflect", "standard.vs", NULL, NULL, NULL, "standard.fs", "reflect");
 
-  solidShadow = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "");
-  textureShadow = newShader("textureshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "textured");
+  shaders[SOLIDSHADOW_SHADER] = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "");
+  shaders[TEXTURESHADOW_SHADER] = newShader("textureshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "textured");
 };
 
 void unload_shaders() {
-  if (textureShadow != NULL) {
-    shaderRelease(textureShadow);
-  };
-  if (solidShadow != NULL) {
-    shaderRelease(solidShadow);
-  };
-  if (billboardShader != NULL) {
-    shaderRelease(billboardShader);
-  };
-  if (colorShader != NULL) {
-    shaderRelease(colorShader);
-  };
-  if (texturedShader != NULL) {
-    shaderRelease(texturedShader);
-  };
-  if (reflectShader != NULL) {
-    shaderRelease(reflectShader);
-  };
-  if (skyboxShader != NULL) {
-    shaderRelease(skyboxShader);    
-  };
-  if (hmapShader != NULL) {
-    shaderRelease(hmapShader);    
+  int i;
+  for (i = 0; i < NUM_SHADERS; i++) {
+    if (shaders[i] != NULL) {
+      shaderRelease(shaders[i]);
+      shaders[i] = NULL;
+    };
   };
 };
 
@@ -190,7 +173,8 @@ void initHMap() {
 
   mat = newMaterial("hmap");                  // create a material for our heightmap
   mat->priority = 99;                         // render as late as possible
-  matSetShader(mat, hmapShader);              // texture shader for now, we do not set a shadow shader
+  mat->ambient = 0.2;                         // ambient factor
+  matSetShader(mat, shaders[HMAP_SHADER]);    // texture shader for now, we do not set a shadow shader
   matSetDiffuseMap(mat, getTextureMapByFileName("grass.jpg", GL_LINEAR, GL_REPEAT, false));
   matSetBumpMap(mat, heightMap);
 
@@ -217,7 +201,7 @@ void initSkybox() {
 
   mat = newMaterial("skybox");                // create a material for our skybox
   mat->priority = 100;                        // render as late as possible
-  matSetShader(mat, skyboxShader);            // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
+  matSetShader(mat, shaders[SKYBOX_SHADER]);  // use our skybox shader, this will cause our lighting and positioning to be ignored!!!
   // we also do not set a shadow shader
   matSetDiffuseMap(mat, getTextureMapByFileName("skybox.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false)); // load our texture map (courtesy of http://rbwhitaker.wikidot.com/texture-library)
  
@@ -426,7 +410,7 @@ void addTrees(const char *pModelPath) {
 
     // create our material
     mat = newMaterial("treeLod3");
-    matSetShader(mat, billboardShader); // set our billboard shader, we do not set a shadow shader
+    matSetShader(mat, BILLBOARD_SHADER); // set our billboard shader, we do not set a shadow shader
     matSetDiffuseMap(mat, tmap);
     mat->shininess = 0.0;
 
@@ -543,47 +527,6 @@ void addTrees(const char *pModelPath) {
   };
 };
 
-void addShadowMapObj() {
-  material *    mat;
-  mesh3d *      mesh;
-  meshNode *    node;
-  vec3          normal, tmpvector;
-  vec2          t;
-
-  // create our material
-  mat = newMaterial("test");
-  matSetShader(mat, billboardShader); // set our billboard shader, we do not set a shadow shader
-  matSetDiffuseMap(mat, sun->shadowMap[0]);
-  mat->shininess = 0.0;
-
-  // create our mesh
-  mesh = newMesh(4,2);
-  meshSetMaterial(mesh, mat);
-  vec3Set(&normal, 0.0, 0.0, 1.0);
-  meshAddVNT(mesh, vec3Set(&tmpvector, -500.0, 1000.0, 0.0), &normal, vec2Set(&t, 0.0, 0.0));
-  meshAddVNT(mesh, vec3Set(&tmpvector,  500.0, 1000.0, 0.0), &normal, vec2Set(&t, 1.0, 0.0));
-  meshAddVNT(mesh, vec3Set(&tmpvector,  500.0,    0.0, 0.0), &normal, vec2Set(&t, 1.0, 1.0));
-  meshAddVNT(mesh, vec3Set(&tmpvector, -500.0,    0.0, 0.0), &normal, vec2Set(&t, 0.0, 1.0));
-  meshAddFace(mesh, 0, 1, 2);
-  meshAddFace(mesh, 0, 2, 3);
-  meshCopyToGL(mesh, true);
-
-  node = newMeshNode("test");
-  meshNodeSetMesh(node, mesh);
-
-  // position our node
-  tmpvector.x = 0.0;
-  tmpvector.z = 0.0;
-  tmpvector.y = getHeight(tmpvector.x, tmpvector.z) - 15.0;
-  mat4Translate(&node->position, &tmpvector);
-
-  meshNodeAddChild(scene, node);
-
-  meshNodeRelease(node);
-  meshRelease(mesh);
-  matRelease(mat);
-};
-
 void load_objects() {
   char          modelPath[1024];
   char *        text;
@@ -604,8 +547,8 @@ void load_objects() {
 
   // create our default material, make sure it's the first one
   mat = newMaterial("Default");
-  matSetShader(mat, colorShader);
-  matSetShadowShader(mat, solidShadow);
+  matSetShader(mat, shaders[COLOR_SHADER]);
+  matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]);
   llistAddTo(materials, mat);
   matRelease(mat);
   mat = NULL;
@@ -631,14 +574,14 @@ void load_objects() {
 
     // assign both solid and shadow shaders, note that our shadow shader will be ignored for transparent shadows
     if (mat->reflectMap != NULL) {  
-      matSetShader(mat, reflectShader);
-      matSetShadowShader(mat, solidShadow);
+      matSetShader(mat, shaders[REFLECT_SHADER]);
+      matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]);
     } else if (mat->diffuseMap != NULL) {          
-      matSetShader(mat, texturedShader);
-      matSetShadowShader(mat, solidShadow); // being conservative, we only use our texture shadow shader if there is a point to check our alpha.
+      matSetShader(mat, shaders[TEXTURED_SHADER]);
+      matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]); // being conservative, we only use our texture shadow shader if there is a point to check our alpha.
     } else {
-      matSetShader(mat, colorShader);
-      matSetShadowShader(mat, solidShadow);
+      matSetShader(mat, shaders[COLOR_SHADER]);
+      matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]);
     };
     
     lnode = lnode->next;
@@ -648,12 +591,12 @@ void load_objects() {
   mat = getMatByName(materials, "Leaves");
   if (mat != NULL) {
     mat->twoSided = true;
-    matSetShadowShader(mat, textureShadow); // only our leaves have an alpha we need to check.
+    matSetShadowShader(mat, shaders[TEXTURESHADOW_SHADER]); // only our leaves have an alpha we need to check.
   };
 
   // create a material for rendering bounds (we moved this down because we do not want a shadow shader!)
   mat = newMaterial("Bounds");
-  matSetShader(mat, colorShader);
+  matSetShader(mat, shaders[COLOR_SHADER]);
   vec3Set(&mat->matColor, 0.0, 1.0, 0.0);
   mat->alpha = 0.5;
   mat->shininess = 0.0;
@@ -676,9 +619,6 @@ void load_objects() {
 
     // And create our skybox, we no longer add this to our scene so we can handle this last in our rendering loop
     initSkybox();
-
-    // add test object to show our shadow map
-    // addShadowMapObj();
   }; 
 };
 
@@ -734,15 +674,31 @@ void engineLoad(bool pHMD) {
   // load, compile and link our shader(s)
   load_shaders();
   
-  // setup our light
+  // setup our lights
   sun = newLightSource("Sun", vec3Set(&tmpvector, 100000.0, 100000.0, 0.00));
-  
+  vec3Set(&sun->lightCol, 1.0, 1.0, 1.0);
+
+  memset(pointLights, 0, sizeof(pointLights));
+
+  pointLights[0] = newLightSource("PointLight", vec3Set(&tmpvector, 0.0, 1700.0, 0.00));
+  vec3Set(&pointLights[0]->lightCol, 1.0, 0.0, 0.0);
+  pointLights[0]->lightRadius = 1000.0;
+
+  pointLights[1] = newLightSource("PointLight", vec3Set(&tmpvector, 400.0, 1700.0, -100.00));
+  vec3Set(&pointLights[1]->lightCol, 0.0, 1.0, 0.0);
+  pointLights[1]->lightRadius = 200.0;
+
+  pointLights[2] = newLightSource("PointLight", vec3Set(&tmpvector, -400.0, 1700.0, -100.00));
+  vec3Set(&pointLights[2]->lightCol, 0.0, 0.0, 1.0);
+  pointLights[2]->lightRadius = 200.0;
+
   // load our objects
   load_objects();
   
   // init our view matrix
   mat4Identity(&view);
   mat4LookAt(&view, &camera_eye, &camera_lookat, vec3Set(&upvector, 0.0, 1.0, 0.0));
+
 
   // create our gbuffer
   geoBuffer = newGBuffer(pHMD); // if we're rendering for an HMD we need barrel distorion
@@ -752,8 +708,16 @@ void engineLoad(bool pHMD) {
 void engineUnload() {
   int i;
 
+  for (i = 0; i < MAX_LIGHTS; i++) {
+    if (pointLights[i] != NULL) {
+      lsRelease(pointLights[i]);
+      pointLights[i] = NULL;
+    };
+  };
+
   if (sun != NULL) {
     lsRelease(sun);
+    sun = NULL;
   };
 
   if (geoBuffer != NULL) {
@@ -884,7 +848,7 @@ void engineUpdate(double pSecondsPassed) {
   // update our view matrix
   mat4Identity(&view);
   mat4LookAt(&view, &camera_eye, &camera_lookat, vec3Set(&upvector, 0.0, 1.0, 0.0));
-    
+  
   // update our frame counter
   frames += 1.0f;
   delta = pSecondsPassed - lastsecs;
@@ -895,6 +859,47 @@ void engineUpdate(double pSecondsPassed) {
     lastsecs = pSecondsPassed;
     lastframes = frames;
   };
+};
+
+void drawRect(GLuint pTexture, int pX, int pY, int pWidth, int pHeight, shaderMatrices * pMatrices, bool pIsDepth) {
+  mat4            tmpmatrix;
+  vec3            tmpvector;
+  GLuint          vao;
+  shaderInfo *    shader;
+
+  shader = shaders[pIsDepth ? RECTDEPTH_SHADER : RECT_SHADER];
+
+  if (shader == NULL) {
+    return;
+  };
+
+  // !BAS! temporarily create a VAO. We'l eventually put this into something..
+  glGenVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+
+  mat4Identity(&tmpmatrix);
+  mat4Translate(&tmpmatrix, vec3Set(&tmpvector, pX, pY + pHeight, 0.0));
+  mat4Scale(&tmpmatrix, vec3Set(&tmpvector, pWidth, -pHeight, 0.0));
+  shdMatSetModel(pMatrices, &tmpmatrix);
+
+  glUseProgram(shader->program);
+
+  if (shader->mvpId >= 0) {
+    glUniformMatrix4fv(shader->mvpId, 1, false, (const GLfloat *) shdMatGetMvp(pMatrices)->m);
+  };
+
+  if (shader->textureMapId >= 0) {
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, pTexture);      
+    glUniform1i(shader->textureMapId, 0); 
+  };
+
+  // and draw
+  glDrawArrays(GL_TRIANGLES, 0, 3 * 2);
+
+  // done with this
+  glBindVertexArray(0);
+  glDeleteVertexArrays(1, &vao);
 };
 
 // engineRender is called to render our stuff
@@ -916,10 +921,29 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
     lsRenderShadowMapForSun(sun, 0, 4096,  1500, &camera_eye, scene);
     lsRenderShadowMapForSun(sun, 1, 4096,  3000, &camera_eye, scene);
     lsRenderShadowMapForSun(sun, 2, 4096, 10000, &camera_eye, scene);
+
+    for (i = 0; i < MAX_LIGHTS; i++) {
+      if (pointLights[i] != NULL) {
+        lsRenderShadowMapsForPointLight(pointLights[i], 512, scene);
+      };
+    };
   };
 
   // render to our gbuffer first...
-  if (gBufferRenderTo(geoBuffer, pWidth, pHeight)) {
+  if (gBufferRenderTo(geoBuffer, pWidth, pHeight)) {        
+    // enable and configure our backface culling
+    glEnable(GL_CULL_FACE);   // enable culling
+    glFrontFace(GL_CW);       // clockwise
+    glCullFace(GL_BACK);      // backface culling
+
+    // enable our depth test
+    glEnable(GL_DEPTH_TEST);  // perform our depth test
+    glDepthMask(GL_TRUE);     // enable writing to our depth buffer
+
+    // disable alpha blending  
+    glDisable(GL_BLEND);
+
+    // clear our buffers
     if (wireframe) {
       // clear our buffers to all zeroes...
       glClearColor(0.0f,0.0f,0.0f,0.0f);
@@ -932,16 +956,6 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
 
       glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     }
-        
-    // enable and configure our backface culling
-    glEnable(GL_CULL_FACE);   // enable culling
-    glFrontFace(GL_CW);       // clockwise
-    glCullFace(GL_BACK);      // backface culling
-
-    // enable our depth test
-    glEnable(GL_DEPTH_TEST);
-    // disable alpha blending  
-    glDisable(GL_BLEND);
 
     // reset our last material used
     matResetLastUsed();
@@ -950,7 +964,6 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
     mat4Identity(&tmpmatrix);
     // distance between eyes is on average 6.5 cm, this should be setable
     mat4Stereo(&tmpmatrix, 45.0, pRatio, 1.0, 100000.0, 6.5, 200.0, pMode);
-//  mat4Ortho(&tmpmatrix, -15000.0, 15000.0, -15000.0, 15000.0, -50000.0, 50000.0);
     shdMatSetProjection(&matrices, &tmpmatrix); // call our set function to reset our flags
   
     // copy our view matrix into our state
@@ -969,8 +982,19 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     // First we do our global lighting
-    // note: we need to apply the inverse of our view matrix to our shadow map matrices.
     gBufferDoMainPass(geoBuffer, &matrices, sun);  
+
+    // now use blending for our additional lights
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    // loop through our lights
+    for (i = 0; i < MAX_LIGHTS; i++) {
+      if (pointLights[i] != NULL) {
+        gBufferDoPointLight(geoBuffer, &matrices, pointLights[i]);
+      };
+    };
   };
 
   // unset stuff
@@ -998,8 +1022,14 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
       // We want a orthographic projection for our frame counter
       mat4Identity(&tmpmatrix);
       mat4Ortho(&tmpmatrix, -pRatio * virtualScreenHeight, pRatio * virtualScreenHeight, virtualScreenHeight, -virtualScreenHeight, 1.0f, -1.0f);
-      // shdMatSetProjection(&matrices, &tmpmatrix);
+      shdMatSetProjection(&matrices, &tmpmatrix);
+
+      // also tell our font engine
       gl3fonsProjection(fs, (GLfloat *)tmpmatrix.m);
+
+      // don't need a view matrix
+      mat4Identity(&tmpmatrix);
+      shdMatSetView(&matrices, &tmpmatrix);
 
       // what text shall we draw?
       sprintf(info,"FPS: %0.1f, use wasd to rotate the camera, zc to move forwards/backwards. f to toggle wireframe", fps);
@@ -1024,8 +1054,36 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
 
       // lets display our log
       for (i = 0; i < 20; i++) {
-        fonsDrawText(fs, 0.0, -250.0f + (i * 20.0f), getLogLine(i), NULL);        
+        fonsDrawText(fs, 100.0, -250.0f + (i * 20.0f), getLogLine(i), NULL);        
       };
+
+      glDisable(GL_BLEND);
+
+
+      // display some buffers
+      if (geoBuffer != NULL) {
+        drawRect(geoBuffer->textureIds[0], -pRatio * 250.0f, -190.0f, 80.0f * pRatio, 80.0f, &matrices, false);
+        drawRect(geoBuffer->textureIds[1], -pRatio * 160.0f, -190.0f, 80.0f * pRatio, 80.0f, &matrices, false);
+        drawRect(geoBuffer->textureIds[2], -pRatio * 70.0f, -190.0f, 80.0f * pRatio, 80.0f, &matrices, false);
+        drawRect(geoBuffer->textureIds[3], -pRatio * 250.0f, -100.0f, 80.0f * pRatio, 80.0f, &matrices, false);
+        drawRect(geoBuffer->textureIds[4], -pRatio * 160.0f, -100.0f, 80.0f * pRatio, 80.0f, &matrices, false);
+        // drawRect(geoBuffer->depthBufferId, -pRatio * 70.0f, -100.0f, 80.0f * pRatio, 80.0f, &matrices, true);
+      };
+
+      if (sun->shadowMap[0] != NULL) {
+        drawRect(sun->shadowMap[0]->textureId, -pRatio * 250.0f, -10.0f, 100.0f, 100.0f, &matrices, true);
+        drawRect(sun->shadowMap[1]->textureId, -pRatio * 250.0f + 110.0f, -10.0f, 100.0f, 100.0f, &matrices, true);
+        drawRect(sun->shadowMap[2]->textureId, -pRatio * 250.0f + 220.0f, -10.0f, 100.0f, 100.0f, &matrices, true);
+      };
+
+      if (pointLights[0]->shadowMap[0] != NULL) {
+        drawRect(pointLights[0]->shadowMap[0]->textureId, -pRatio * 250.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(pointLights[0]->shadowMap[1]->textureId, -pRatio * 250.0f + 60.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(pointLights[0]->shadowMap[2]->textureId, -pRatio * 250.0f + 120.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(pointLights[0]->shadowMap[3]->textureId, -pRatio * 250.0f + 180.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(pointLights[0]->shadowMap[4]->textureId, -pRatio * 250.0f + 240.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(pointLights[0]->shadowMap[5]->textureId, -pRatio * 250.0f + 300.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+      }; 
     };
   };
 };
@@ -1038,6 +1096,10 @@ void engineKeyPressed(int pKey) {
   } else if (pKey == GLFW_KEY_I) {
     // toggle info
     showinfo = !showinfo;
+  } else if (pKey == GLFW_KEY_P) {
+    pointLights[0]->position.y += 10;
+  } else if (pKey == GLFW_KEY_L) {
+    pointLights[0]->position.y -= 10;
   } else if (pKey == GLFW_KEY_B) {
     bounds = !bounds;
     meshNodeSetRenderBounds(bounds);

@@ -5,8 +5,10 @@ uniform int   tilesPerSide;          // number of tiles on each side, we assume 
 uniform float textureSize;           // size of the texture, we assume we use square textures
 
 uniform mat4 mvp;
+uniform mat4 modelView;
 uniform sampler2D mapdata;
 
+out vec4 V;
 out vec2 T;
 
 void main() {
@@ -45,10 +47,11 @@ void main() {
 	int y = (i - x) / int(mapSize.x);
 
   // figure out our vertex position
-	vec4 V = vec4((vertices[v] + vec3(float(x - int(mapSize.x / 2.0)), float(y - int(mapSize.y / 2.0)), 0.0)), 1.0);
+	V = vec4((vertices[v] + vec3(float(x - int(mapSize.x / 2.0)), float(y - int(mapSize.y / 2.0)), 0.0)), 1.0);
   
   // and project it
   gl_Position = mvp * V;
+  V = modelView * V;
 
   // now figure out our texture coord
   int ti = int(texture(mapdata, vec2((float(x) + 0.5) / mapSize.x, (float(y) + 0.5) / mapSize.y)).r * 256.0);

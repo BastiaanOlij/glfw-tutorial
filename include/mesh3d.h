@@ -482,7 +482,7 @@ bool meshCopyToGL(mesh3d * pMesh, bool pFreeBuffers) {
     return false;    
   };
 
-  infolog("Copying %s to GL", pMesh->name);
+  // infolog("Copying %s to GL", pMesh->name);
   
   // make sure we have buffers
   if (pMesh->VAO == GL_UNDEF_OBJ) {
@@ -1103,7 +1103,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 dynArrayPush(coords, &vertex);
               } else if (varcharCmp(what, "o") == 0) {
                 // new object
-                errorlog(0, "Found object %s", line->text + 2);
+                // infolog("Found object %s", line->text + 2);
                 
                 // first round of our old...
                 if (objVertices != NULL) {
@@ -1124,7 +1124,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 objVertices = newDynArray(sizeof(objVertexIdx));
               } else if (varcharCmp(what, "g") == 0) {
                 // new group
-                errorlog(0, "Found group %s", line->text + 2);
+                // infolog("Found group %s", line->text + 2);
               
                 // first round of our old...
                 if (objVertices != NULL) {
@@ -1148,7 +1148,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
                 if (pMaterials != NULL) {
                   // first we check if we need to create an object and then we start adding our face
                   if (mesh == NULL) {
-                    errorlog(0, "Adding default mesh");
+                    // infolog("Adding default mesh");
                     mesh = newMesh(0, 0);
                     strcpy(mesh->name, "Default");                
                   };
@@ -1172,7 +1172,7 @@ bool meshParseObj(const char * pData, llist * pAddToMeshList, llist * pMaterials
               
                 // first we check if we need to create an object and then we start adding our face
                 if (mesh == NULL) {
-                  errorlog(0, "Adding default mesh");
+                  // infolog("Adding default mesh");
                   mesh = newMesh(0, 0);
                   strcpy(mesh->name, "Default");                
                 };

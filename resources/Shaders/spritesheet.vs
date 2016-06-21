@@ -1,10 +1,12 @@
 #version 330
 
 uniform mat4 mvp;              // our model-view-projection matrix
+uniform mat4 modelView;				 // our model-view matrix
 uniform vec2 textureSize;      // size of our texture in pixels
 uniform vec2 spriteLeftTop;    // top/left position of our sprite in our texture
 uniform vec2 spriteSize;       // size of our sprite within our texture in pixels
 
+out vec4 V;
 out vec2 T;
 
 void main() {
@@ -36,10 +38,11 @@ void main() {
 	);
 
   // figure out our vertex position
-	vec4 V = vec4(vertices[gl_VertexID].x * spriteSize.x, vertices[gl_VertexID].y * spriteSize.y, vertices[gl_VertexID].z, 1.0);
+	V = vec4(vertices[gl_VertexID].x * spriteSize.x, vertices[gl_VertexID].y * spriteSize.y, vertices[gl_VertexID].z, 1.0);
   
   // and project it
   gl_Position = mvp * V;
+  V = modelView * V;
 
   // now figure out our texture coord
   T = (spriteLeftTop + (texcoord[gl_VertexID] * spriteSize)) / textureSize;
