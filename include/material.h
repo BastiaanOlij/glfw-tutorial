@@ -592,6 +592,13 @@ bool matParseMtl(const char * pData, llist * pMaterials) {
                   // load our relection map, note that it will be retained inside of matSetRelectMap!;
                   matSetReflectMap(mat, getTextureMapByFileName(line->text + 9, GL_LINEAR, GL_CLAMP_TO_EDGE, false));
                 };                                
+              } else if (varcharCmp(what, "map_bump") == 0) {
+                // our bump/normal texture map
+                if (mat != NULL) {
+                  // load our bump map, note that it will be retained inside of matSetBumpMap!;
+                  matSetBumpMap(mat, getTextureMapByFileName(line->text + 9, GL_LINEAR, GL_REPEAT, false));
+                  tmapMakeMipMap(mat->bumpMap);
+                };                                
               } else {
                 errorlog(linecount, "Unknown type %s", what->text);              
               };

@@ -2,7 +2,7 @@
 
 #define PI 3.1415926535897932384626433832795
 
-uniform float   radius = 100.0;
+uniform float   radius = 100.0;       // maximum distance to light at which we still illuminate things
 uniform mat4    projection;
 uniform vec3    lightPos;
 

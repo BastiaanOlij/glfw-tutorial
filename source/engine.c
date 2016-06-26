@@ -134,6 +134,8 @@ void load_shaders() {
 
   shaders[COLOR_SHADER] = newShader("flatcolor", "standard.vs", NULL, NULL, NULL, "standard.fs", "");
   shaders[TEXTURED_SHADER] = newShader("textured", "standard.vs", NULL, NULL, NULL, "standard.fs", "textured");
+  shaders[BUMP_SHADER] = newShader("bumpcolor", "standard.vs", NULL, NULL, NULL, "standard.fs", "normalmap");
+  shaders[BUMPTEXT_SHADER] = newShader("bumptextured", "standard.vs", NULL, NULL, NULL, "standard.fs", "textured normalmap");
   shaders[REFLECT_SHADER] = newShader("reflect", "standard.vs", NULL, NULL, NULL, "standard.fs", "reflect");
 
   shaders[SOLIDSHADOW_SHADER] = newShader("solidshadow", "shadow.vs", NULL, NULL, NULL, "shadow.fs", "");
@@ -291,6 +293,39 @@ void addTieBombers(const char *pModelPath) {
     tieNodes[9] = newCopyMeshNode("tie-bomber-9", tieNodes[0], false);
     mat4Translate(&tieNodes[9]->position, vec3Set(&tmpvector, 0.0, 0.0, -1000.0));
     meshNodeAddChild(scene, tieNodes[9]);
+  };
+};
+
+void addHouse(char *pModelPath) {
+  char *        text;
+  vec3          tmpvector;
+  mat4          adjust;
+
+  // load our house obj file
+  text = loadFile(pModelPath, "House.obj");
+  if (text != NULL) {
+    llist *       meshes = newMeshList();
+    meshNode *    house = newMeshNode("House");
+
+    // setup our adjustment matrix to center our object
+    mat4Identity(&adjust);
+    mat4Scale(&adjust, vec3Set(&tmpvector, 2.0, 2.0, 2.0));
+
+    // parse our object file
+    meshParseObj(text, meshes, materials, &adjust);
+
+    // add our house mesh to our containing node (note we may get a tree through our house as we position them randomly...)
+    mat4Translate(&house->position, vec3Set(&tmpvector, -1000.0, 460.0, 1000.0));
+    meshNodeAddChildren(house, meshes);
+
+    // create a bounding box for ourhouse
+    meshNodeMakeBounds(house);
+
+    // and add it to our scene
+    meshNodeAddChild(scene, house);
+
+    // we don't need to keep this now that it is in our scene
+    meshNodeRelease(house);
   };
 };
 
@@ -560,6 +595,12 @@ void load_objects() {
       
     free(text);
   };    
+  text = loadFile(modelPath,"House.mtl");
+  if (text != NULL) {
+    matParseMtl(text, materials);
+      
+    free(text);
+  };    
   text = loadFile(modelPath,"tree.mtl");
   if (text != NULL) {
     matParseMtl(text, materials);
@@ -576,11 +617,19 @@ void load_objects() {
     if (mat->reflectMap != NULL) {  
       matSetShader(mat, shaders[REFLECT_SHADER]);
       matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]);
-    } else if (mat->diffuseMap != NULL) {          
-      matSetShader(mat, shaders[TEXTURED_SHADER]);
+    } else if (mat->diffuseMap != NULL) {         
+      if (mat->bumpMap != NULL) {
+        matSetShader(mat, shaders[BUMPTEXT_SHADER]);
+      } else {
+        matSetShader(mat, shaders[TEXTURED_SHADER]);
+      };
       matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]); // being conservative, we only use our texture shadow shader if there is a point to check our alpha.
     } else {
-      matSetShader(mat, shaders[COLOR_SHADER]);
+      if (mat->bumpMap != NULL) {
+        matSetShader(mat, shaders[BUMP_SHADER]);
+      } else {
+        matSetShader(mat, shaders[COLOR_SHADER]);
+      };
       matSetShadowShader(mat, shaders[SOLIDSHADOW_SHADER]);
     };
     
@@ -608,8 +657,9 @@ void load_objects() {
   // create our root node
   scene = newMeshNode("scene");
   if (scene != NULL) {
-    // add our tie bombers
+    // add models
     addTieBombers(modelPath);
+    addHouse(modelPath);
     
     // create our height map object
     initHMap();
@@ -682,7 +732,7 @@ void engineLoad(bool pHMD) {
 
   pointLights[0] = newLightSource("PointLight", vec3Set(&tmpvector, 0.0, 1700.0, 0.00));
   vec3Set(&pointLights[0]->lightCol, 1.0, 0.0, 0.0);
-  pointLights[0]->lightRadius = 1000.0;
+  pointLights[0]->lightRadius = 200.0;
 
   pointLights[1] = newLightSource("PointLight", vec3Set(&tmpvector, 400.0, 1700.0, -100.00));
   vec3Set(&pointLights[1]->lightCol, 0.0, 1.0, 0.0);

@@ -20,6 +20,11 @@ out vec4          V;              // position of fragment after modelView matrix
 out vec3          Nv;             // normal for our fragment with our normalView matrix applied
 out vec2          T;              // coordinates for this fragment within our texture map
 
+#ifdef normalmap
+out vec3          Tangent;        // tangent
+out vec3          Binormal;       // binormal
+#endif
+
 void main(void) {
   // load up our values
   V = vec4(positions, 1.0);
@@ -38,7 +43,11 @@ void main(void) {
   
   // N after our normalView matrix is applied
   Nv = normalize(normalView * N);
-  
+#ifdef normalmap
+  Tangent = normalize(normalView[0]);
+  Binormal = normalize(normalView[1]);
+#endif 
+
   // N after our normal matrix is applied
   N = normalize(normalMatrix * N);
 }

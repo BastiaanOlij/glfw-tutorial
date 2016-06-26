@@ -24,6 +24,12 @@ in vec4           V;                                // position of fragment afte
 in vec3           Nv;                               // normal vector for our fragment (inc view matrix)
 in vec2           T;                                // coordinates for this fragment within our texture map
 
+#ifdef normalmap
+uniform sampler2D bumpMap;                          // our normal map
+in vec3           Tangent;                          // tangent
+in vec3           Binormal;                         // binormal
+#endif
+
 #include "outputs.fs"
 
 void main() {
@@ -41,7 +47,18 @@ void main() {
   
   // Do our outputs without any light calculations
   WorldPosOut = vec4((V.xyz / posScale) + 0.5, 1.0); // our world pos adjusted by view scaled so it fits in 0.0 - 1.0 range
-  NormalOut = vec4(Nv, 1.0); // our normal adjusted by view
+
+#ifdef normalmap
+  // TangentToView matrix idea taken from http://gamedev.stackexchange.com/questions/34475/deferred-rendering-and-normal-mapping
+  mat3 tangentToView = mat3(Tangent.x, Binormal.x, Nv.x,
+                            Tangent.y, Binormal.y, Nv.y,
+                            Tangent.z, Binormal.z, Nv.z);
+  vec3 adjNormal = normalize((texture(bumpMap, T).rgb * 2.0) - 1.0);
+  adjNormal = adjNormal * tangentToView;
+  NormalOut = vec4((adjNormal / 2.0) + 0.5, 1.0); // our normal adjusted by view
+#else
+  NormalOut = vec4((Nv / 2.0) + 0.5, 1.0); // our normal adjusted by view
+#endif
 
 #ifdef reflect
   // add in our reflection, this is one of the few places where world coordinates are paramount. 

@@ -20,7 +20,7 @@ void main() {
 
   // Do our outputs without any light calculations
   WorldPosOut = vec4((V.xyz / posScale) + 0.5, 1.0); // our world pos adjusted by view scaled so it fits in 0.0 - 1.0 range
-  NormalOut = vec4(Nv, 1.0); // our normal adjusted by view
+  NormalOut = vec4((Nv / 2.0) + 0.5, 1.0); // our normal adjusted by view
   AmbientOut = vec4(fragcolor.rgb * ambient, 1.0);
   DiffuseOut = vec4(fragcolor.rgb * (1.0 - ambient), 1.0);
   SpecularOut = vec4(0.0, 0.0, 0.0, 0.0);

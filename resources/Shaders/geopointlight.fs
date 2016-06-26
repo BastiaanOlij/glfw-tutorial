@@ -32,7 +32,7 @@ void main() {
     vec4 V = vec4((texture(worldPos, T).xyz - 0.5) * posScale, 1.0);
     vec3 difColor = texture(diffuse, T).rgb;
     vec4 specColor = texture(specular, T);
-    vec3 N = texture(normal, T).xyz;
+    vec3 N = (texture(normal, T).xyz - 0.5) * 2.0;
 
     // we'll add shadows in here later
     float shadowFactor = boxShadow(V);
