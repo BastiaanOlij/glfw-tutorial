@@ -51,6 +51,7 @@ typedef struct lightShader {
   GLint             projectionId;     // ID of our projection matrix
   GLint             lightPosId;       // position of our light
   GLint             lightColId;       // color of our light
+  GLint             lightMapId;       // light map
 
   // local lighting (some good info here : http://ogldev.atspace.co.uk/www/tutorial20/tutorial20.html)
   GLint             radiusId;         // radius of influence
@@ -68,13 +69,18 @@ typedef struct lightSource {
   // standard info
   unsigned int      retainCount;      // retain count for this object
   char              name[25];         // name for our light source
+  int               type;             // type of light, 0 = directional, 1 = point light, 2 = spot light
   vec3              position;         // position of our light
   vec3              adjPosition;      // position of our light with view matrix applied
+  vec3              lookat;           // our lookat vector (relative from position of light)
   vec3              lightCol;         // color for this light
+  texturemap *      lightMap;         // light map (for spotlights only)
+  float             lightAngle;       // light angle (for spotlights only)
   float             lightRadius;      // radius of our light source (not applicable to directional light)
 
   // data for shadowmaps (max LIGHTS_MAXSHADOWMAPS)
   bool              shadowRebuild[LIGHTS_MAXSHADOWMAPS]; // do we need to rebuild our shadow map?
+  vec3              shadowPos[LIGHTS_MAXSHADOWMAPS];     // remembering our position point for our shadow map
   vec3              shadowLA[LIGHTS_MAXSHADOWMAPS];      // remembering our lookat point for our shadow map
   texturemap *      shadowMap[LIGHTS_MAXSHADOWMAPS];     // shadowmaps for this light
   mat4              shadowMat[LIGHTS_MAXSHADOWMAPS];     // view-projection matrices for this light
@@ -93,6 +99,7 @@ typedef struct gBuffer {
   GLuint            VAO;              // we need a VAO to render to
   lightShader *     mainPassShader;   // shader to use for our main pass
   lightShader *     pointLightShader; // shader to use for our point lights
+  lightShader *     spotLightShader;  // shader to use for ourspot lights
 } gBuffer;
 
 #ifdef __cplusplus
@@ -109,8 +116,9 @@ bool lightShaderSelect(lightShader * pShader, gBuffer * pBuffer, shaderMatrices 
 lightSource * newLightSource(char * pName, const vec3 * pPosition);
 void lsRetain(lightSource * pLight);
 void lsRelease(lightSource * pLight);
+void lsSetLightMap(lightSource * pLight, texturemap * pMap);
 void lsRenderShadowMapForSun(lightSource * pLight, int pMapIdx, int pResolution, float pSize, const vec3 * pEye, meshNode * pScene);
-void lsRenderShadowMapsForPointLight(lightSource * pLight, int pResolution, meshNode * pScene);
+void lsRenderShadowMapsForLight(lightSource * pLight, int pResolution, meshNode * pScene);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // gBuffer
@@ -119,7 +127,7 @@ gBuffer * newGBuffer(bool pBarrelDist);
 void freeGBuffer(gBuffer * pBuffer);
 bool gBufferRenderTo(gBuffer * pBuffer, int pWidth, int pHeight);
 void gBufferDoMainPass(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSource * pSun);
-void gBufferDoPointLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSource * pPointLight);
+void gBufferDoLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSource * pPointLight);
 
 #ifdef __cplusplus
 };
@@ -159,55 +167,60 @@ lightShader * newLightShader(const char * pName, const char * pVertexShader, con
         for (i = 0; i < GBUFFER_NUM_TEXTURES; i++) {
           newShader->textureUniforms[i] = glGetUniformLocation(newShader->program, gBuffer_uniforms[i]);
           if (newShader->textureUniforms[i] < 0) {
-            errorlog(newShader->textureUniforms[i], "Unknown uniform %s:%s", newShader->name, gBuffer_uniforms[i]);  // just log it, may not be a problem
+            // infolog("Unknown uniform %s:%s", newShader->name, gBuffer_uniforms[i]);  // just log it, may not be a problem
           };
         };
 
         newShader->projectionId = glGetUniformLocation(newShader->program, "projection");
         if (newShader->projectionId < 0) {
-          errorlog(newShader->projectionId, "Unknown uniform %s:projection", newShader->name);
+          // infolog("Unknown uniform %s:projection", newShader->name);
         };
 
         newShader->lightPosId = glGetUniformLocation(newShader->program, "lightPos");
         if (newShader->lightPosId < 0) {
-          errorlog(newShader->lightPosId, "Unknown uniform %s:lightPos", newShader->name);
+          // infolog("Unknown uniform %s:lightPos", newShader->name);
         };
 
         newShader->lightColId = glGetUniformLocation(newShader->program, "lightCol");
         if (newShader->lightColId < 0) {
-          errorlog(newShader->lightColId, "Unknown uniform %s:lightCol", newShader->name);
+          // infolog("Unknown uniform %s:lightCol", newShader->name);
+        };
+
+        newShader->lightMapId = glGetUniformLocation(newShader->program, "lightMap");
+        if (newShader->lightMapId < 0) {
+          infolog("Unknown uniform %s:lightMap", newShader->name);
         };
 
         newShader->radiusId = glGetUniformLocation(newShader->program, "radius");
         if (newShader->radiusId < 0) {
-          errorlog(newShader->radiusId, "Unknown uniform %s:radius", newShader->name);
+          // infolog("Unknown uniform %s:radius", newShader->name);
         };
 
         newShader->attConstantId = glGetUniformLocation(newShader->program, "attConstant");
         if (newShader->attConstantId < 0) {
-          errorlog(newShader->attConstantId, "Unknown uniform %s:attConstant", newShader->name);
+          // infolog("Unknown uniform %s:attConstant", newShader->name);
         };
 
         newShader->attLinearId = glGetUniformLocation(newShader->program, "attLinear");
         if (newShader->attLinearId < 0) {
-          errorlog(newShader->attLinearId, "Unknown uniform %s:attLinear", newShader->name);
+          // infolog("Unknown uniform %s:attLinear", newShader->name);
         };
 
         newShader->attExpId = glGetUniformLocation(newShader->program, "attExp");
         if (newShader->attExpId < 0) {
-          errorlog(newShader->attExpId, "Unknown uniform %s:attExp", newShader->name);
+          // infolog("Unknown uniform %s:attExp", newShader->name);
         };
 
         for (i = 0; i < LIGHTS_MAXSHADOWMAPS; i++) {
           sprintf(uName, "shadowMap[%d]", i);
           newShader->shadowMapId[i] = glGetUniformLocation(newShader->program, uName);
           if (newShader->shadowMapId[i] < 0) {
-            errorlog(newShader->shadowMapId[i], "Unknown uniform %s:%s", newShader->name, uName);
+            // infolog(newShader->shadowMapId[i], "Unknown uniform %s:%s", newShader->name, uName);
           };
           sprintf(uName, "shadowMat[%d]", i);
           newShader->shadowMatId[i] = glGetUniformLocation(newShader->program, uName);
           if (newShader->shadowMatId[i] < 0) {
-            errorlog(newShader->shadowMatId[i], "Unknown uniform %s:%s", newShader->name, uName);
+            // infolog(newShader->shadowMatId[i], "Unknown uniform %s:%s", newShader->name, uName);
           };
         };
       };
@@ -280,6 +293,17 @@ bool lightShaderSelect(lightShader * pShader, gBuffer * pBuffer, shaderMatrices 
     glUniform3f(pShader->lightColId, pLight->lightCol.x, pLight->lightCol.y, pLight->lightCol.z);
   };
 
+  if (pShader->lightMapId >= 0) {
+    glActiveTexture(GL_TEXTURE0 + texture);
+    if (pLight->lightMap == NULL) {
+      glBindTexture(GL_TEXTURE_2D, 0);      
+    } else {
+      glBindTexture(GL_TEXTURE_2D, pLight->lightMap->textureId);      
+    }
+    glUniform1i(pShader->lightMapId, texture); 
+    texture++;   
+  };
+
   // setup the information relate to our light strength
   if (pShader->radiusId >= 0) {
     glUniform1f(pShader->radiusId, lightMaxDistance(pLight));
@@ -328,16 +352,21 @@ lightSource * newLightSource(char * pName, const vec3 * pPosition) {
     // init default info
     newLight->retainCount = 1;
     strcpy(newLight->name, pName);
+    newLight->type = 0;
     vec3Copy(&newLight->position, pPosition);
     vec3Copy(&newLight->adjPosition, pPosition);
+    vec3Set(&newLight->lookat, 0.0, -1.0, 0.0);
     vec3Set(&newLight->lightCol, 1.0, 1.0, 1.0);
+    newLight->lightMap = NULL;
 
     // init light strenght (ignored for global lights)
+    newLight->lightAngle = 120.0;
     newLight->lightRadius = 100.0;
 
     // init shadow maps as empty maps
     for (i = 0; i < LIGHTS_MAXSHADOWMAPS; i++) {
       newLight->shadowRebuild[i] = true;
+      vec3Set(&newLight->shadowPos[i], 0.0, 0.0, 0.0);
       vec3Set(&newLight->shadowLA[i], 0.0, 0.0, 0.0);
       newLight->shadowMap[i] = NULL;
       mat4Identity(&newLight->shadowMat[i]);
@@ -365,6 +394,8 @@ void lsRelease(lightSource * pLight) {
   } else {
     int i;
 
+    lsSetLightMap(pLight, NULL);
+
     for (i = 0; i < LIGHTS_MAXSHADOWMAPS; i++) {
       // lets be nice and cleanup
       if (pLight->shadowMap[i] != NULL) {
@@ -377,17 +408,49 @@ void lsRelease(lightSource * pLight) {
   };
 };
 
+void lsSetLightMap(lightSource * pLight, texturemap * pMap) {
+  if (pLight == NULL) {
+    return;
+  };
+
+  // already set? nothing to do!
+  if (pLight->lightMap == pMap) {
+    return;
+  };
+
+  // out with the old...
+  if (pLight->lightMap != NULL) {
+     tmapRelease(pLight->lightMap);
+  };
+
+  // in with the new
+  pLight->lightMap = pMap;
+  if (pLight->lightMap != NULL) {
+      infolog("set lightmap");
+     tmapRetain(pLight->lightMap);
+  };
+};
+
 // render our shadow map
 // note that this likely sets our shadow map FBO and alters our viewport
 // calling code needs to reset it back to what it needs
 void lsRenderShadowMapForSun(lightSource * pLight, int pMapIdx, int pResolution, float pSize, const vec3 * pEye, meshNode * pScene) {
   vec3 newLookat;
 
+  if (pLight->type != 0) {
+    // this logic only works for directional lights
+    return;
+  };
+
   // prevent rebuilds if we only move a tiny bit....
   newLookat.x = pEye->x - fmod(pEye->x, pSize/100.0);
   newLookat.y = pEye->y - fmod(pEye->y, pSize/100.0);
   newLookat.z = pEye->z - fmod(pEye->z, pSize/100.0);
 
+  if ((pLight->shadowPos[pMapIdx].x != pLight->position.x) || (pLight->shadowPos[pMapIdx].y != pLight->position.y) || (pLight->shadowPos[pMapIdx].z != pLight->position.z)) {
+    vec3Copy(&pLight->shadowPos[pMapIdx], &pLight->position);
+    pLight->shadowRebuild[pMapIdx] = true;
+  };
   if ((pLight->shadowLA[pMapIdx].x != newLookat.x) || (pLight->shadowLA[pMapIdx].y != newLookat.y) || (pLight->shadowLA[pMapIdx].z != newLookat.z)) {
     vec3Copy(&pLight->shadowLA[pMapIdx], &newLookat);
     pLight->shadowRebuild[pMapIdx] = true;
@@ -480,9 +543,10 @@ void lsRenderShadowMapForSun(lightSource * pLight, int pMapIdx, int pResolution,
   };
 };
 
-void lsRenderShadowMapsForPointLight(lightSource * pLight, int pResolution, meshNode * pScene) {
+void lsRenderShadowMapsForLight(lightSource * pLight, int pResolution, meshNode * pScene) {
   int i;
 
+  // our point light need lookats set
   vec3 lookats[] = {
        0.0, -100.0,    0.0, 
      100.0,    0.0,    0.0, 
@@ -492,19 +556,30 @@ void lsRenderShadowMapsForPointLight(lightSource * pLight, int pResolution, mesh
        0.0,    0.0, -100.0, 
   };
 
+  if (pLight->type == 0) {
+    // this logic doesn't work for directional lights
+    return;
+  };
+
   // as we're using our light position and its the same for all shadow maps we only check our flag on the first
-  if ((pLight->shadowLA[0].x != pLight->position.x) || (pLight->shadowLA[0].y != pLight->position.y) || (pLight->shadowLA[0].z != pLight->position.z)) {
-    vec3Copy(&pLight->shadowLA[0], &pLight->position);
+  if ((pLight->shadowPos[0].x != pLight->position.x) || (pLight->shadowPos[0].y != pLight->position.y) || (pLight->shadowPos[0].z != pLight->position.z)) {
+    vec3Copy(&pLight->shadowPos[0], &pLight->position);
     pLight->shadowRebuild[0] = true;
   };
 
-  // we'll initialize our shadow maps for our point light
+  if ((pLight->type == 2) && ((pLight->shadowLA[0].x != pLight->lookat.x) || (pLight->shadowLA[0].y != pLight->lookat.y) || (pLight->shadowLA[0].z != pLight->lookat.z))) {
+    vec3Copy(&pLight->shadowLA[0], &pLight->lookat);
+    pLight->shadowRebuild[0] = true;
+  };
+
+  // we'll initialize our shadow maps for our light
   if (pLight->shadowRebuild[0] == false) {
     // reuse it as is...
   } else if (pScene == NULL) {
     // nothing to render..
   } else {
-    for (i = 0; i < 6; i++) {
+    int numMaps = pLight->type == 1 ? 6 : 1;
+    for (i = 0; i < numMaps; i++) {
       if (pLight->shadowMap[i] == NULL) {
         // create our shadow map if we haven't got one already
         pLight->shadowMap[i] = newTextureMap("shadowmap");
@@ -542,13 +617,17 @@ void lsRenderShadowMapsForPointLight(lightSource * pLight, int pResolution, mesh
 
         // set our projection
         mat4Identity(&tmpmatrix);
-        mat4Projection(&tmpmatrix, 90.0, 1.0, 1.0, lightMaxDistance(pLight) * 1.5);
+        mat4Projection(&tmpmatrix, pLight->type == 1 ? 90.0 : pLight->lightAngle, 1.0, 1.0, lightMaxDistance(pLight) * 1.5);
         shdMatSetProjection(&matrices, &tmpmatrix); // call our set function to reset our flags
 
         // now make a view based on our light position
         mat4Identity(&tmpmatrix);
         vec3Copy(&lookat, &pLight->position);
-        vec3Add(&lookat, &lookats[i]);
+        if (pLight->type == 1) {
+          vec3Add(&lookat, &lookats[i]);
+        } else if (pLight->type == 2) {
+          vec3Add(&lookat, &pLight->lookat);
+        };
         mat4LookAt(&tmpmatrix, &pLight->position, &lookat, vec3Set(&tmpvector, 0.0, 1.0, 0.0));
         shdMatSetView(&matrices, &tmpmatrix);
 
@@ -592,6 +671,7 @@ gBuffer * newGBuffer(bool pBarrelDist) {
 
     newBuffer->mainPassShader = newLightShader("geomainpass", "geomainpass.vs", "geomainpass.fs", defines);
     newBuffer->pointLightShader = newLightShader("geopointlight", "geopointlight.vs", "geopointlight.fs", defines);
+    newBuffer->spotLightShader = newLightShader("geospotlight", "geospotlight.vs", "geospotlight.fs", defines);
 
     // no longer need our defines
     if (defines != NULL) {
@@ -729,7 +809,7 @@ void gBufferDoMainPass(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSourc
   glBindVertexArray(0);
 };
 
-// draw a point light, note that we are assuming gBufferDoMainPass was called before we call this and
+// draw a light, note that we are assuming gBufferDoMainPass was called before we call this and
 // that we have correctly setup blending
 //
 // First we do our global lighting
@@ -740,11 +820,11 @@ void gBufferDoMainPass(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSourc
 // glBlendEquation(GL_FUNC_ADD);
 // glBlendFunc(GL_ONE, GL_ONE);
 //
-// loop through our point lights
+// loop through our lights
 // for(i = 0; i < NUM_LIGHTS; i++) {
-//   gBufferDoPointLight(geoBuffer, &matrices, pointLights[i]); 
+//   gBufferDoLight(geoBuffer, &matrices, lights[i]); 
 //}
-void gBufferDoPointLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSource * pPointLight) {
+void gBufferDoLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSource * pLight) {
   if (pBuffer == NULL) {
     return;
   } else if (pBuffer->pointLightShader == NULL) {
@@ -754,9 +834,16 @@ void gBufferDoPointLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSou
   };
 
   // select our program
-  lightShaderSelect(pBuffer->pointLightShader, pBuffer, pMatrices, pPointLight);
+  if (pLight->type == 1) {
+    lightShaderSelect(pBuffer->pointLightShader, pBuffer, pMatrices, pLight);
+  } else if (pLight->type == 2) {
+    lightShaderSelect(pBuffer->spotLightShader, pBuffer, pMatrices, pLight);
+  } else {
+    // can't do this here
+    return;
+  };
   
-  if (pPointLight->adjPosition.z < pPointLight->lightRadius) {
+  if (pLight->adjPosition.z < pLight->lightRadius) {
     // select our VAO
     if (pBuffer->VAO == GL_UNDEF_OBJ) {
       glGenVertexArrays(1, &(pBuffer->VAO));
@@ -764,7 +851,11 @@ void gBufferDoPointLight(gBuffer * pBuffer, shaderMatrices * pMatrices, lightSou
     glBindVertexArray(pBuffer->VAO);
 
     // and draw
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 1 + 37);
+    if (pLight->type == 1) {
+      glDrawArrays(GL_TRIANGLE_FAN, 0, 1 + 37);
+    } else if (pLight->type == 2) {
+      glDrawArrays(GL_TRIANGLE_FAN, 0, 1 + 37);
+    };
 
     // and clear our selected vertex array object
     glBindVertexArray(0);

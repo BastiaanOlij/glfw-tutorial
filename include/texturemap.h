@@ -198,7 +198,7 @@ bool tmapLoadImage(texturemap * pTMap, const char * pFileName, GLint pFilter, GL
     errorlog(-1, "Couldn't load %s", fileName);
     return false;
   } else {
-    errorlog(0, "Load %s", fileName);
+    // errorlog(0, "Load %s", fileName);
 
     // remember these
     pTMap->filter = pFilter;

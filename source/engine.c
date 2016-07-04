@@ -35,7 +35,7 @@ shaderInfo *  shaders[NUM_SHADERS];
 // lights
 #define MAX_LIGHTS 100
 lightSource * sun = NULL;
-lightSource * pointLights[MAX_LIGHTS];
+lightSource * lights[MAX_LIGHTS];
 
 // our camera
 mat4          view;
@@ -724,26 +724,45 @@ void engineLoad(bool pHMD) {
   // load, compile and link our shader(s)
   load_shaders();
   
+  // load our objects (note, this also sets up our texture folder so do this before loading our lightmaps!)
+  load_objects();
+
   // setup our lights
   sun = newLightSource("Sun", vec3Set(&tmpvector, 100000.0, 100000.0, 0.00));
-  vec3Set(&sun->lightCol, 1.0, 1.0, 1.0);
+  vec3Set(&sun->lightCol, 0.8, 0.8, 0.8);
+//  vec3Set(&sun->lightCol, 1.0, 1.0, 1.0);
 
-  memset(pointLights, 0, sizeof(pointLights));
+  memset(lights, 0, sizeof(lights));
 
-  pointLights[0] = newLightSource("PointLight", vec3Set(&tmpvector, 0.0, 1700.0, 0.00));
-  vec3Set(&pointLights[0]->lightCol, 1.0, 0.0, 0.0);
-  pointLights[0]->lightRadius = 200.0;
+  lights[0] = newLightSource("PointLight 1", vec3Set(&tmpvector, 0.0, 1700.0, 0.00));
+  vec3Set(&lights[0]->lightCol, 1.0, 0.0, 0.0);
+  lights[0]->type = 1;
+  lights[0]->lightRadius = 200.0;
 
-  pointLights[1] = newLightSource("PointLight", vec3Set(&tmpvector, 400.0, 1700.0, -100.00));
-  vec3Set(&pointLights[1]->lightCol, 0.0, 1.0, 0.0);
-  pointLights[1]->lightRadius = 200.0;
+  lights[1] = newLightSource("PointLight 2", vec3Set(&tmpvector, 400.0, 1700.0, -100.00));
+  vec3Set(&lights[1]->lightCol, 0.0, 1.0, 0.0);
+  lights[1]->type = 1;
+  lights[1]->lightRadius = 200.0;
 
-  pointLights[2] = newLightSource("PointLight", vec3Set(&tmpvector, -400.0, 1700.0, -100.00));
-  vec3Set(&pointLights[2]->lightCol, 0.0, 0.0, 1.0);
-  pointLights[2]->lightRadius = 200.0;
+  lights[2] = newLightSource("PointLight 3", vec3Set(&tmpvector, -400.0, 1700.0, -100.00));
+  vec3Set(&lights[2]->lightCol, 0.0, 0.0, 1.0);
+  lights[2]->type = 1;
+  lights[2]->lightRadius = 200.0;
 
-  // load our objects
-  load_objects();
+  lights[3] = newLightSource("SpotLight 1", vec3Set(&tmpvector, -1000.0, 690.0, 1000.0));
+  vec3Set(&lights[3]->lightCol, 1.0, 1.0, 1.0);
+  lights[3]->type = 2;
+  lights[3]->lightRadius = 200.0;
+//  lsSetLightMap(lights[3], getTextureMapByFileName("lightmap.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
+  lsSetLightMap(lights[3], getTextureMapByFileName("batman-symbol.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
+
+  lights[4] = newLightSource("SpotLight 2", vec3Set(&tmpvector, -450.0, 500.0, 1000.0));
+  vec3Set(&lights[4]->lightCol, 1.0, 1.0, 1.0);
+  vec3Set(&lights[4]->lookat, -1.0, 0.5, 0.0);
+  lights[4]->type = 2;
+  lights[4]->lightRadius = 500.0;
+  lights[4]->lightAngle = 80.0;
+  lsSetLightMap(lights[4], getTextureMapByFileName("batman-symbol.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
   
   // init our view matrix
   mat4Identity(&view);
@@ -759,9 +778,9 @@ void engineUnload() {
   int i;
 
   for (i = 0; i < MAX_LIGHTS; i++) {
-    if (pointLights[i] != NULL) {
-      lsRelease(pointLights[i]);
-      pointLights[i] = NULL;
+    if (lights[i] != NULL) {
+      lsRelease(lights[i]);
+      lights[i] = NULL;
     };
   };
 
@@ -834,10 +853,6 @@ void engineUpdate(double pSecondsPassed) {
     mat4Identity(&rotate);
     mat4Rotate(&rotate, moveSun, vec3Set(&tmpvector, 0.0, 0.0, 1.0));
     mat4ApplyToVec3(&sun->position, &sun->position, &rotate);
-
-    sun->shadowRebuild[0] = true;
-    sun->shadowRebuild[1] = true;
-    sun->shadowRebuild[2] = true;
   };
     
   // adjust camera
@@ -973,8 +988,8 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
     lsRenderShadowMapForSun(sun, 2, 4096, 10000, &camera_eye, scene);
 
     for (i = 0; i < MAX_LIGHTS; i++) {
-      if (pointLights[i] != NULL) {
-        lsRenderShadowMapsForPointLight(pointLights[i], 512, scene);
+      if (lights[i] != NULL) {
+        lsRenderShadowMapsForLight(lights[i], 512, scene);
       };
     };
   };
@@ -1041,8 +1056,8 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
 
     // loop through our lights
     for (i = 0; i < MAX_LIGHTS; i++) {
-      if (pointLights[i] != NULL) {
-        gBufferDoPointLight(geoBuffer, &matrices, pointLights[i]);
+      if (lights[i] != NULL) {
+        gBufferDoLight(geoBuffer, &matrices, lights[i]);
       };
     };
   };
@@ -1126,14 +1141,17 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
         drawRect(sun->shadowMap[2]->textureId, -pRatio * 250.0f + 220.0f, -10.0f, 100.0f, 100.0f, &matrices, true);
       };
 
-      if (pointLights[0]->shadowMap[0] != NULL) {
-        drawRect(pointLights[0]->shadowMap[0]->textureId, -pRatio * 250.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
-        drawRect(pointLights[0]->shadowMap[1]->textureId, -pRatio * 250.0f + 60.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
-        drawRect(pointLights[0]->shadowMap[2]->textureId, -pRatio * 250.0f + 120.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
-        drawRect(pointLights[0]->shadowMap[3]->textureId, -pRatio * 250.0f + 180.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
-        drawRect(pointLights[0]->shadowMap[4]->textureId, -pRatio * 250.0f + 240.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
-        drawRect(pointLights[0]->shadowMap[5]->textureId, -pRatio * 250.0f + 300.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+      if (lights[0]->shadowMap[0] != NULL) {
+        drawRect(lights[0]->shadowMap[0]->textureId, -pRatio * 250.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(lights[0]->shadowMap[1]->textureId, -pRatio * 250.0f + 60.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(lights[0]->shadowMap[2]->textureId, -pRatio * 250.0f + 120.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(lights[0]->shadowMap[3]->textureId, -pRatio * 250.0f + 180.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(lights[0]->shadowMap[4]->textureId, -pRatio * 250.0f + 240.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
+        drawRect(lights[0]->shadowMap[5]->textureId, -pRatio * 250.0f + 300.0f, 100.0f, 50.0f, 50.0f, &matrices, true);
       }; 
+      if (lights[3]->shadowMap[0] != NULL) {
+        drawRect(lights[3]->shadowMap[0]->textureId, -pRatio * 250.0f, 160.0f, 50.0f, 50.0f, &matrices, true);
+      };
     };
   };
 };
@@ -1147,9 +1165,11 @@ void engineKeyPressed(int pKey) {
     // toggle info
     showinfo = !showinfo;
   } else if (pKey == GLFW_KEY_P) {
-    pointLights[0]->position.y += 10;
+    lights[3]->position.y += 10;
+    infolog("Moved light to y = %f", lights[3]->position.y);
   } else if (pKey == GLFW_KEY_L) {
-    pointLights[0]->position.y -= 10;
+    lights[3]->position.y -= 10;
+    infolog("Moved light to y = %f", lights[3]->position.y);
   } else if (pKey == GLFW_KEY_B) {
     bounds = !bounds;
     meshNodeSetRenderBounds(bounds);

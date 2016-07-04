@@ -36,19 +36,21 @@ void main() {
     // calculate our shadow factor
     float shadowFactor = cascadedShadow(V);
 
-    // Get the normalized directional vector between our surface position and our light position
-    vec3  L = normalize(lightPos - V.xyz);
+    // Get the normalized directional vector based on our light position
+    vec3  L = normalize(lightPos);
     float NdotL = max(0.0, dot(N, L));
     difColor = difColor * NdotL * lightCol * shadowFactor;
 
     float shininess = specColor.a * 256.0;
-    if ((NdotL != 0.0) && (shininess != 0.0)) {
-      // slightly different way to calculate our specular highlight
-      vec3  halfVector  = normalize(L - normalize(V.xyz));
-      float nxHalf = max(0.0, dot(N, halfVector));
-      float specPower = pow(nxHalf, shininess);
-      
-      specColor = vec4(lightCol * specColor.rgb * specPower * shadowFactor, 1.0);
+    if ((NdotL > 0.0) && (shininess != 0.0)) {
+      vec3 lightReflect = normalize(reflect(L, N));
+      float specPower = dot(normalize(V.xyz), lightReflect);
+      if (specPower > 0.0) {
+        specPower = pow(specPower, shininess);
+        specColor = vec4(lightCol * specColor.rgb * specPower * shadowFactor, 1.0);        
+      } else {
+        specColor = vec4(0.0, 0.0, 0.0, 0.0);
+      };
     } else {
       specColor = vec4(0.0, 0.0, 0.0, 0.0);
     };
