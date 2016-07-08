@@ -41,6 +41,8 @@ lightSource * lights[MAX_LIGHTS];
 mat4          view;
 vec3          camera_eye = { 0.0, 1000.0, 1300.0 };
 vec3          camera_lookat =  { 0.0, 1000.0, 0.0 };
+float         iod = 6.5; // eye distance for stereo
+float         projectionPlane = 200.0;
 
 // our gBuffer
 gBuffer *     geoBuffer = NULL;
@@ -753,8 +755,8 @@ void engineLoad(bool pHMD) {
   vec3Set(&lights[3]->lightCol, 1.0, 1.0, 1.0);
   lights[3]->type = 2;
   lights[3]->lightRadius = 200.0;
-//  lsSetLightMap(lights[3], getTextureMapByFileName("lightmap.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
-  lsSetLightMap(lights[3], getTextureMapByFileName("batman-symbol.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
+  lsSetLightMap(lights[3], getTextureMapByFileName("lightmap.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
+//  lsSetLightMap(lights[3], getTextureMapByFileName("batman-symbol.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
 
   lights[4] = newLightSource("SpotLight 2", vec3Set(&tmpvector, -450.0, 500.0, 1000.0));
   vec3Set(&lights[4]->lightCol, 1.0, 1.0, 1.0);
@@ -859,31 +861,31 @@ void engineUpdate(double pSecondsPassed) {
   if ((moveHorz <= -0.1) || (moveHorz >= 0.1)) {
     // rotate position left
     
-    // get our (reverse) looking direction vector
-    vec3Copy(&avector, &camera_eye);
-    vec3Sub(&avector, &camera_lookat);
+    // get our looking direction vector
+    vec3Copy(&avector, &camera_lookat);
+    vec3Sub(&avector, &camera_eye);
     
     // rotate our looking direction vector around our up vector
     mat4Identity(&M);
     mat4Rotate(&M, moveHorz, vec3Set(&bvector, view.m[0][1], view.m[1][1], view.m[2][1]));
     
-    // and update our eye position accordingly
-    mat4ApplyToVec3(&camera_eye, &avector, &M);
-    vec3Add(&camera_eye, &camera_lookat);
+    // and update our lookat position accordingly
+    mat4ApplyToVec3(&camera_lookat, &avector, &M);
+    vec3Add(&camera_lookat, &camera_eye);
   };
 
   if ((moveVert <= -0.1) || (moveVert >= 0.1)) {
-    // get our (reverse) looking direction vector
-    vec3Copy(&avector, &camera_eye);
-    vec3Sub(&avector, &camera_lookat);
+    // get our looking direction vector
+    vec3Copy(&avector, &camera_lookat);
+    vec3Sub(&avector, &camera_eye);
     
     // rotate our looking direction vector around our right vector
     mat4Identity(&M);
     mat4Rotate(&M, moveVert, vec3Set(&bvector, view.m[0][0], view.m[1][0], view.m[2][0]));
     
-    // and update our eye position accordingly
-    mat4ApplyToVec3(&camera_eye, &avector, &M);
-    vec3Add(&camera_eye, &camera_lookat);
+    // and update our lookat position accordingly
+    mat4ApplyToVec3(&camera_lookat, &avector, &M);
+    vec3Add(&camera_lookat, &camera_eye);
   };
 
   if ((moveForward <= -0.1) || (moveForward >= 0.1)) {
@@ -1028,7 +1030,7 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
     // init our projection matrix, we use a 3D projection matrix now
     mat4Identity(&tmpmatrix);
     // distance between eyes is on average 6.5 cm, this should be setable
-    mat4Stereo(&tmpmatrix, 45.0, pRatio, 1.0, 100000.0, 6.5, 200.0, pMode);
+    mat4Stereo(&tmpmatrix, 45.0, pRatio, 1.0, 100000.0, iod, projectionPlane, pMode);
     shdMatSetProjection(&matrices, &tmpmatrix); // call our set function to reset our flags
   
     // copy our view matrix into our state
@@ -1097,7 +1099,11 @@ void engineRender(int pWidth, int pHeight, float pRatio, int pMode) {
       shdMatSetView(&matrices, &tmpmatrix);
 
       // what text shall we draw?
-      sprintf(info,"FPS: %0.1f, use wasd to rotate the camera, zc to move forwards/backwards. f to toggle wireframe", fps);
+      if (pMode > 0) {
+        sprintf(info,"FPS: %0.1f, iod: %0.1f, plane: %0.1f use wasd to rotate the camera, zc to move forwards/backwards. f to toggle wireframe", fps, iod, projectionPlane);        
+      } else {
+        sprintf(info,"FPS: %0.1f, use wasd to rotate the camera, zc to move forwards/backwards. f to toggle wireframe", fps);
+      };
       fonsDrawText(fs, -pRatio * 250.0f, 230.0f, info, NULL);
       
       // lets display some info about our joystick:
@@ -1173,5 +1179,19 @@ void engineKeyPressed(int pKey) {
   } else if (pKey == GLFW_KEY_B) {
     bounds = !bounds;
     meshNodeSetRenderBounds(bounds);
+  } else if (pKey == GLFW_KEY_O) {
+    iod -= 0.1f;
+    if (iod < 1.0f) {
+      iod = 1.0f;
+    };
+  } else if (pKey == GLFW_KEY_K) {
+    iod += 0.1f;
+  } else if (pKey == GLFW_KEY_N) {
+    projectionPlane -= 10.0f;
+    if (projectionPlane < 10.0f) {
+      projectionPlane = 10.0f;
+    };
+  } else if (pKey == GLFW_KEY_M) {
+    projectionPlane += 10.0f;
   };
 };
