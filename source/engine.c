@@ -754,7 +754,8 @@ void engineLoad(bool pHMD) {
   lights[3] = newLightSource("SpotLight 1", vec3Set(&tmpvector, -1000.0, 690.0, 1000.0));
   vec3Set(&lights[3]->lightCol, 1.0, 1.0, 1.0);
   lights[3]->type = 2;
-  lights[3]->lightRadius = 200.0;
+  lights[3]->lightAngle = 160.0;
+  lights[3]->lightRadius = 300.0;
   lsSetLightMap(lights[3], getTextureMapByFileName("lightmap.png", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
 //  lsSetLightMap(lights[3], getTextureMapByFileName("batman-symbol.jpg", GL_LINEAR, GL_CLAMP_TO_EDGE, false));
 
