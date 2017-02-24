@@ -3,7 +3,7 @@ CC = gcc
 CPP = g++
 # -g flag adds debug info, should remove in production
 CFLAGS = -g -c -arch i386 -arch x86_64 -I../include -I../3rdparty
-LDFLAGS = -framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -arch i386 -arch x86_64
+LDFLAGS = -framework Cocoa -framework OpenGL -framework IOKit -framework CoreVideo -arch i386 -arch x86_64 -mmacosx-version-min=10.9
 
 APPNAME = glfw-tutorial
 OBJECTDIR = ../build/Objects
